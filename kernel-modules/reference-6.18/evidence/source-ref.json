@@ -1,0 +1,10 @@
+{
+  "ref": "refs/tags/linux-msft-wsl-6.18.58.1",
+  "node_id": "MDM6UmVmMTg3OTIyMDY3OnJlZnMvdGFncy9saW51eC1tc2Z0LXdzbC02LjE4LjU4LjE=",
+  "url": "https://api.github.com/repos/microsoft/WSL2-Linux-Kernel/git/refs/tags/linux-msft-wsl-6.18.58.1",
+  "object": {
+    "sha": "a989171929bed4ea681be8d77333845ce1c1732a",
+    "type": "commit",
+    "url": "https://api.github.com/repos/microsoft/WSL2-Linux-Kernel/git/commits/a989171929bed4ea681be8d77333845ce1c1732a"
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "profiles": {
+    "wsx-omarchy": {
+      "graphics_components": [
+        {
+          "name": "mesa",
+          "version": "26.1.8",
+          "inputs_sha256": "1e2bb5364d370a10478d9a17e883c05abcb3363425f02aa4802d11615d5106c7"
+        },
+        {
+          "name": "venus",
+          "version": "26.2.4",
+          "inputs_sha256": "1e2bb5364d370a10478d9a17e883c05abcb3363425f02aa4802d11615d5106c7"
+        },
+        {
+          "name": "aquamarine",
+          "version": "f31c47a1b9d300847d8fc3108ad959448103dfc1",
+          "inputs_sha256": "1e2bb5364d370a10478d9a17e883c05abcb3363425f02aa4802d11615d5106c7"
+        },
+        {
+          "name": "hyprland",
+          "version": "efb50993780079460b0cbed1363e2166a2de1d9f",
+          "inputs_sha256": "1e2bb5364d370a10478d9a17e883c05abcb3363425f02aa4802d11615d5106c7"
+        }
+      ],
+      "runtime_receipt_sha256": "565b64806b7f15b0bf4959fb5531b070bb344ebc634b658a342654ba939447ea",
+      "guest_versions": {
+        "mesa": "26.1.8",
+        "venus": "26.2.4"
+      }
+    },
+    "wsx-cachyos-plasma": {
+      "graphics_components": [
+        {
+          "name": "mesa",
+          "version": "26.1.8",
+          "inputs_sha256": "20dd99647d0631761d691607b9042632de209d86c246672458fbc8fe054bf43e"
+        },
+        {
+          "name": "venus",
+          "version": "26.2.4",
+          "inputs_sha256": "20dd99647d0631761d691607b9042632de209d86c246672458fbc8fe054bf43e"
+        },
+        {
+          "name": "kwin",
+          "version": "6.8.1",
+          "inputs_sha256": "20dd99647d0631761d691607b9042632de209d86c246672458fbc8fe054bf43e"
+        }
+      ],
+      "runtime_receipt_sha256": "685325f5032f2b60f17a330a25e58c7fd94b1192398174854b3dcefc3a4eb40b",
+      "guest_versions": {
+        "mesa": "26.1.8",
+        "venus": "26.2.4",
+        "kwin-opaque": "6.8.1"
+      }
+    }
+  },
+  "imports_without_manifest": [
+    {
+      "distribution": "wsx-omarchy",
+      "version": "4.0.6-r11",
+      "archive_sha256": "d27ba2a61818b8a6c3ed51ad44ca31279659c99e7d5deacc2603d1ba3d1ea841"
+    },
+    {
+      "distribution": "wsx-cachyos-plasma",
+      "version": "2026.11.4-r1",
+      "archive_sha256": "9db257a2353f6ac484808fca3ed4cc12cbf4df5b55239536f55147cb0e080d1f"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "all_inputs_match_verified_build": true,
+  "reference": "multi-owner-kernel-20261106-01",
+  "inputs": {
+    "vsock.h": "843892a9ff4da6d9593912ddd98896e7f27d9e5513d6d49cb4f7321ffe88c73f",
+    "vsock.c": "b2dc0e3bf1b8a84b0c9d6c1a53141844df56a1c5d1f9850fb7e7c39d340571d5",
+    "owner.c": "1047955a7df02d53ba6c8d79e690b96e1b46800116edbe3aa62a21299aed9792",
+    "pci-shm.c": "8493ed8bfff6aebb777b5dd9e3c2e1935e9e5baaa90700832a9fe105fa220a27",
+    "parent.c": "81311288409b38ed4515e2052652b2408f9d68d0c8545731102ca5f006e68d0f",
+    "parent.h": "327955db63f9fbb3b10de7d3fca92a048821025ab8611adb1898891e99bb39e1",
+    "pci-shm.h": "f95e9a743f63f0451b0ab182e31695018a44dbcdc10d16dea6baee0ca495601f",
+    "virtio_msg_internal.h": "ab583abac18c94247b21dace692cf31b7705f894c93077ccbfa856a3ee1012e6",
+    "Makefile": "18d9150964d547a9bba60b642a0b5c8242ecd373ea7b5458dc8510747705a83a",
+    "virtio_msg.c": "48b79ebf505c553cfff7c7f85e2f2ba91321665b3fcf86e291d4279c9fde3e46",
+    "include/uapi/linux/virtio_msg.h": "0ff749129af3d17dbca72794dad37cb093dbfeccfc0715baf6a1ca38f561f100"
+  },
+  "abi_changed": false
+}

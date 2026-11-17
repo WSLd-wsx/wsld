@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "source_delivery_schema": 1,
+  "distribution_id": "wsx-omarchy",
+  "image_version": "4.0.6-r10",
+  "upstream_release": "v4.0.6",
+  "upstream_commit": "237f1b4071a0bff2296c6d740ba2b9fd695ebfa0",
+  "wsx_revision": 10,
+  "architecture": "x86_64",
+  "archive_format": "tar.zst",
+  "asset_name": "wsx-omarchy-4.0.6-r10-x86_64.rootfs.tar.zst",
+  "sha256": "5c76b35bbdf7aec9db53f510a796493562a665a0a077f26c855d62038c4a1808",
+  "compressed_size": 1397552140,
+  "unpacked_size": 3655421500,
+  "installation_space_required": 13437558464,
+  "build_commit": "6cead0ea756974b0989ab448aa213e633e14e08f",
+  "build_identity": "b9eb912a16eb23f0794b9ad1036c098e606ea3ddf4eae6bcce6098ce59f0f514",
+  "guest_interface_abi": 1,
+  "minimum_wsx_core_version": null,
+  "graphics_components": [
+    {
+      "name": "mesa",
+      "version": "26.1.8",
+      "inputs_sha256": "1e2bb5364d370a10478d9a17e883c05abcb3363425f02aa4802d11615d5106c7"
+    },
+    {
+      "name": "venus",
+      "version": "26.2.4",
+      "inputs_sha256": "1e2bb5364d370a10478d9a17e883c05abcb3363425f02aa4802d11615d5106c7"
+    },
+    {
+      "name": "aquamarine",
+      "version": "f31c47a1b9d300847d8fc3108ad959448103dfc1",
+      "inputs_sha256": "1e2bb5364d370a10478d9a17e883c05abcb3363425f02aa4802d11615d5106c7"
+    },
+    {
+      "name": "hyprland",
+      "version": "efb50993780079460b0cbed1363e2166a2de1d9f",
+      "inputs_sha256": "1e2bb5364d370a10478d9a17e883c05abcb3363425f02aa4802d11615d5106c7"
+    }
+  ],
+  "kernel_requirements": {
+    "selection_owner": "wsx-core",
+    "exact_kernel_release_and_symbol_crcs_required": true,
+    "opaque_producer_abi": 1,
+    "opaque_consumer_abi": 2,
+    "drm_embedded_bases_at_allocation_start": true,
+    "rejected_module_sha256": [
+      "70d83be693bc714378b41f22ff38f2a1d459b363b853be214114c5988600def0"
+    ]
+  },
+  "validation": {
+    "build": "passed",
+    "offline": "passed",
+    "wsl_boot": "not_run",
+    "gpu_first_frame": "not_run",
+    "desktop": "not_run",
+    "stability": "not_run"
+  }
+}

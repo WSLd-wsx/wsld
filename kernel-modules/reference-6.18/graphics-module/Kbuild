@@ -1,0 +1,10 @@
+# Generated integration only; all staged upstream C/H files are unchanged.
+obj-m += drm_kms_helper.o virtio_dma_buf.o virtio-gpu.o
+drm_kms_helper-y := kms/drm_atomic_helper.o kms/drm_atomic_state_helper.o kms/drm_bridge_helper.o kms/drm_crtc_helper.o kms/drm_damage_helper.o kms/drm_flip_work.o kms/drm_format_helper.o kms/drm_gem_atomic_helper.o kms/drm_gem_framebuffer_helper.o kms/drm_kms_helper_common.o kms/drm_modeset_helper.o kms/drm_plane_helper.o kms/drm_probe_helper.o kms/drm_self_refresh_helper.o kms/drm_simple_kms_helper.o kms/drm_vblank_helper.o
+drm_kms_helper-$(CONFIG_DRM_PANEL_BRIDGE) += kms/bridge/panel.o
+drm_kms_helper-$(CONFIG_DRM_FBDEV_EMULATION) += kms/drm_fb_helper.o
+virtio-gpu-y := gpu/virtgpu_drv.o gpu/virtgpu_kms.o gpu/virtgpu_gem.o gpu/virtgpu_vram.o gpu/virtgpu_display.o gpu/virtgpu_vq.o gpu/virtgpu_fence.o gpu/virtgpu_object.o gpu/virtgpu_debugfs.o gpu/virtgpu_plane.o gpu/virtgpu_ioctl.o gpu/virtgpu_prime.o gpu/virtgpu_trace_points.o gpu/virtgpu_submit.o
+virtio_dma_buf-y := dma/virtio_dma_buf.o
+ccflags-y += -I$(src)/gpu
+ccflags-y += -DWSX_OWNED_MEMORY_INTEGRATED
+ccflags-y += -DCONFIG_DRM_VIRTIO_GPU_KMS=1
