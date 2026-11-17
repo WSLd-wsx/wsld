@@ -1,0 +1,26 @@
+{
+  "kernel": "6.18.58.1",
+  "changes": {
+    "drm_file.c": {
+      "before": "dd7230cb5a3748248a58bb9ee12e3ac351ecfb81df99b08fc4cd51b6e12f2a75",
+      "after": "9c7c9d77f38383d3c9a140cd5a50a27abad8fa6603b3521a109e028673bf6017",
+      "source": "drivers/gpu/drm/drm_file.c"
+    },
+    "drm_client_event.c": {
+      "before": "9bc2c8d5265bf7493e9f220b2e407177835125fcd6cc543e1a639de11ffcf38f",
+      "after": "f30bc08a111b3880c636618b2e6c9eeca02b65b0bb4d4c134e135b2f02581a54",
+      "source": "drivers/gpu/drm/drm_client_event.c"
+    },
+    "drm_modeset_helper.c": {
+      "before": "3df5e79ec921658caa9c98216600ddeb1cdf3ee71498f0d978987524059f7edb",
+      "after": "e07c458665fdd2724107b9533ab904d89c28bf603061646eab92b3ceac53e313",
+      "source": "drivers/gpu/drm/drm_modeset_helper.c"
+    },
+    "drm_fb_helper.c": {
+      "before": "9064dedaa8ac9f9a97a89cc34b7517d085a197a86c8378b27b8a1f3fa8cf7723",
+      "after": "209d742a32f574bcf84a86c9ce65270aa4f7a12d332f0d2b0ed3503ea8314899",
+      "source": "drivers/gpu/drm/drm_fb_helper.c"
+    }
+  },
+  "wsx_gpu_extension_modified": false
+}

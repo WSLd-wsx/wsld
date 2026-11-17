@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "origin": "wsx-guest-sources native-memory-build-09 and virglrenderer-win32-port-11 Vulkan headers",
+  "probe_spdx": "MIT",
+  "vulkan_headers_spdx": "Apache-2.0",
+  "files": {
+    "adapter-policy.h": "6c8550cce6fdcf93cb70d392afc1fa56e1de69a967a140f199e6e6806cb514b5",
+    "buffer-plan.h": "7aaaea324c66d70a2a92cb68af86583cac5b1c387f68d7fb3f2e1820bc75223d",
+    "check-buffer.c": "17758fd7344f2d32a17f6b1703027134e1d03df7416d4c5ede693479a4e40c16",
+    "memory-type-policy.h": "58a12266b221128be7fbaeaeafd276a480e3943793ab293d8400652ab252fa3b",
+    "object-type.h": "0465546aff9995f608e9b545a15410841bb9dbb3d61c9c51a600b1e2fd00addc",
+    "venus-protocol/vk_platform.h": "2fa47dd60cd94eb6fd8d7615953878f5664eb57fdff3b1b9b856c1d8f1496737",
+    "venus-protocol/vk_video/vulkan_video_codec_av1std.h": "3443226503a8bcd6b828dabacb8ebe40ece32d6d37274ffd2d855a504629c968",
+    "venus-protocol/vk_video/vulkan_video_codec_av1std_decode.h": "2b912389d39d6627ee8af01e052e9557d213b27c0b79a0e25f5366cfe1942f1a",
+    "venus-protocol/vk_video/vulkan_video_codec_av1std_encode.h": "93ad363de123988cd7b27acc7930f7f93497bc2e5d74f8420ee8ba18e8746e0a",
+    "venus-protocol/vk_video/vulkan_video_codec_h264std.h": "0b715c26af3eecc950ebedcf6831fd8b8a7d6c662780fd8b8a37d9082ac07fae",
+    "venus-protocol/vk_video/vulkan_video_codec_h264std_decode.h": "9667ecc76eaba22e311e5d2d48b38af47ca307865ae35477897790343ba3ad14",
+    "venus-protocol/vk_video/vulkan_video_codec_h264std_encode.h": "c68a1fa4ebadd1b50992a61fb93310a6686d5ea932b91b850d3ad9bc8dec488e",
+    "venus-protocol/vk_video/vulkan_video_codec_h265std.h": "42a2daf1b396f1071f1855262bcadedd544b90da67e2c90d24885720177adf83",
+    "venus-protocol/vk_video/vulkan_video_codec_h265std_decode.h": "38a7c0d6688280795efe00f9ce8506795afbbe558300c9f7eacd764daa42f7e2",
+    "venus-protocol/vk_video/vulkan_video_codec_h265std_encode.h": "aa8c75beac0962abf752a5ec741a42b1a108ee28fb6b3abcdc995e57e20c6c14",
+    "venus-protocol/vk_video/vulkan_video_codec_vp9std.h": "80df697fad03a9acddadb8ae4944bb25b5df4b1a427157ad7fbdeb77112a3c89",
+    "venus-protocol/vk_video/vulkan_video_codec_vp9std_decode.h": "318a21532405f31a7b977c340effbf5bff30790734153c29ed6ad9a8230efbaf",
+    "venus-protocol/vk_video/vulkan_video_codecs_common.h": "7afc98e84d3bea72e40a65161463abbd4be2ff1e1853eca3f8c331afb7329a8b",
+    "venus-protocol/vulkan.h": "20c7e1ac42fe62b3ed526612c52ddfc21e2265f5c69ca9a5e9dd182cc4c8625b",
+    "venus-protocol/vulkan_core.h": "c0f0fe98afae95de1377e13649542912d71ca8817ef21dd0a44778f6fe7a1615",
+    "venus-protocol/vulkan_win32.h": "256a5fb80fe43611f7218a63d8a1fc4d84e51d9e6b250f7254cae235d7c8d4a5",
+    "image-capabilities.h": "fa33bb4ff862ec0fd3106e8d88ee71514fa7f9bdaa4b8a9d4854ba363d9c28af"
+  },
+  "local_modifications": [
+    "Allow driver ID 0 for LUID-selected diagnostics; the caller must match the returned device and driver UUIDs before using the result.",
+    "Port the previously validated read-only image capability query; it creates no image and submits no GPU work."
+  ]
+}

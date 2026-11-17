@@ -1,0 +1,109 @@
+name: Build WSL kernel modules
+on:
+  workflow_dispatch:
+    inputs:
+      rebuild_existing:
+        description: 'Rebuild all discovered versions and publish a separate release'
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      target:
+        required: true
+        type: string
+  schedule:
+    - cron: '19 2 * * *'
+permissions:
+  contents: write
+concurrency:
+  group: wsx-kernel-modules-release
+  cancel-in-progress: false
+jobs:
+  stable-series:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REQUESTED_TARGET: ${{ inputs.target || '' }}
+      REBUILD_EXISTING: ${{ github.event_name == 'workflow_dispatch' && inputs.rebuild_existing && 'true' || 'false' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Prepare build tools
+        run: |
+          bash scripts/runner-dns-fallback.sh
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::https::Timeout=30 update
+          sudo apt-get install --no-install-recommends -y build-essential curl flex bison git libelf-dev libssl-dev bc pahole kmod python3 tar xz-utils zlib1g
+          python3 scripts/capture-kernel-build-dependencies.py --output "$RUNNER_TEMP/wsx-build-dependencies.json"
+          echo "WSX_KERNEL_RUNNER_DEPENDENCIES=$RUNNER_TEMP/wsx-build-dependencies.json" >> "$GITHUB_ENV"
+      - name: Check discovery and kernel pipeline
+        run: |
+          python3 -m unittest discover -s tests -p 'test_*kernel*.py' -q
+          python3 -m unittest discover -s tests -p 'test_export_kernel_groups.py' -q
+          python3 -m unittest discover -s tests -p 'test_bootstrap_kernel_snapshot.py' -q
+      - name: Discover WSL 3.0.3 and newer releases and build missing kernels
+        run: |
+          set -euo pipefail
+          python3 scripts/discover-kernel-series.py "$GITHUB_REPOSITORY" > "$RUNNER_TEMP/wsx-targets.json"
+          if [ -n "$REQUESTED_TARGET" ]; then
+            python3 - "$RUNNER_TEMP/wsx-targets.json" "$REQUESTED_TARGET" <<'PYCODE'
+          import json,sys
+          path,target=sys.argv[1:]
+          items=[item for item in json.load(open(path)) if item['tag']==target]
+          if len(items)!=1: raise ValueError('Requested target is not referenced by a released WSL 3.0.3 or newer')
+          PYCODE
+          fi
+          python3 - "$RUNNER_TEMP/wsx-targets.json" <<'PYCODE' | tee -a "$GITHUB_STEP_SUMMARY"
+          import json,os,sys
+          items=json.load(open(sys.argv[1]))
+          print('### WSL release and kernel coverage')
+          print('| WSL version | Channel | Kernel package | Action |')
+          print('| --- | --- | --- | --- |')
+          build_all=os.environ['REBUILD_EXISTING'] == 'true' or any(item['missing'] for item in items)
+          for item in items:
+              action='Build for complete release' if build_all else 'Already published; skip'
+              for release in item['wsl_releases']:
+                  channel='Preview' if release['prerelease'] else 'Stable'
+                  print(f"| {release['tag']} | {channel} | {item['version']} | {action} |")
+          PYCODE
+          python3 - "$RUNNER_TEMP/wsx-targets.json" > "$RUNNER_TEMP/wsx-targets.tsv" <<'PYCODE'
+          import json,os,sys
+          items=json.load(open(sys.argv[1]))
+          if os.environ['REBUILD_EXISTING'] == 'true' or any(item['missing'] for item in items):
+              for item in items: print(item['tag'] + '\t' + item['version'])
+          PYCODE
+          shared="$RUNNER_TEMP/wsx-shared-build-cache"
+          artifact_root="$RUNNER_TEMP/wsx-rebuilt-kernels"
+          mkdir -p "$shared"
+          failures=0
+          while IFS=$'\t' read -r target version; do
+            [ -n "$target" ] || continue
+            echo "::group::Build $target ($version)"
+            refs=$(git ls-remote --tags https://github.com/microsoft/WSL2-Linux-Kernel.git "refs/tags/$target" "refs/tags/$target^{}")
+            commit=$(printf '%s\n' "$refs" | awk -v tag="refs/tags/$target" '$2==tag {direct=$1} $2==tag"^{}" {peeled=$1} END {if(peeled) print peeled; else print direct}')
+            if [[ ! "$commit" =~ ^[0-9a-f]{40}$ ]]; then echo "Invalid upstream source tag: $target" >&2; failures=$((failures+1)); echo '::endgroup::'; continue; fi
+            work="$RUNNER_TEMP/wsx-kernel-$version"
+            mkdir "$work"
+            if RUNNER_TEMP="$work" WSX_KERNEL_SHARED_CACHE="$shared" WSX_KERNEL_ARTIFACT_ROOT="$artifact_root" TARGET_TAG="$target" TARGET_VERSION="$version" TARGET_COMMIT="$commit" bash scripts/publish-kernel-target.sh; then
+              echo "Prepared rebuilt $version for release" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "Failed $target ($version); inspect workflow logs" | tee -a "$GITHUB_STEP_SUMMARY"
+              failures=$((failures+1))
+            fi
+            # The runner is disposable; the full failed build output was emitted
+            # to the workflow log. Preserve the verified toolchain, not the
+            # per-target source tree or growing shallow source object cache.
+            rm -rf -- "$work" "$shared/wsl-source.git"
+            df -h "$RUNNER_TEMP"
+            echo '::endgroup::'
+          done < "$RUNNER_TEMP/wsx-targets.tsv"
+          [ "$failures" -eq 0 ] || { echo "$failures kernel target(s) failed" >&2; exit 1; }
+      - name: Publish verified rebuilt module packages
+        if: ${{ success() }}
+        run: |
+          if [ -s "$RUNNER_TEMP/wsx-targets.tsv" ]; then
+            bash scripts/publish-kernel-rebuild.sh "$RUNNER_TEMP/wsx-rebuilt-kernels" "$RUNNER_TEMP/wsx-targets.tsv"
+          else
+            echo 'All discovered kernels are already published; no release created.' >> "$GITHUB_STEP_SUMMARY"
+          fi

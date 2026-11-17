@@ -1,0 +1,13 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "WSX Manager",
+  "version": "0.2.1",
+  "identifier": "com.wsxdesk.community",
+  "build": { "frontendDist": "../gui/ui" },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [],
+    "security": { "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src ipc: http://ipc.localhost" }
+  },
+  "bundle": { "active": false, "icon": ["../host/resources/icon.ico"] }
+}

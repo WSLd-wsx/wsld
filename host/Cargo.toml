@@ -1,0 +1,14 @@
+[package]
+name = "wsx-host"
+version = "0.2.1"
+edition = "2021"
+license.workspace = true
+[dependencies]
+wsx-core = { path = "../core" }
+wsx-abi = { path = "../abi-sdk", version = "=0.2.0" }
+serde_json = "=1.0.154"
+[features]
+remote-kernel-acceptance = ["wsx-core/remote-kernel-acceptance"]
+opaque-probe-acceptance = ["wsx-core/opaque-probe-acceptance"]
+acceptance = []
+simulate-opaque-unavailable = ["wsx-core/simulate-opaque-unavailable"]

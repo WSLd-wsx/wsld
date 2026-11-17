@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "source_delivery_schema": 2,
+  "distribution_id": "wsx-omarchy",
+  "image_version": "4.0.6-r12",
+  "upstream_release": "v4.0.6",
+  "upstream_commit": "237f1b4071a0bff2296c6d740ba2b9fd695ebfa0",
+  "wsx_revision": 12,
+  "architecture": "x86_64",
+  "archive_format": "tar.zst",
+  "asset_name": "wsx-omarchy-4.0.6-r12-x86_64.rootfs.tar.zst",
+  "sha256": "8ed1f22e3d28c51454900bd7aceaf71095867d2842b35496ac7915cc7af7aac3",
+  "compressed_size": 1397893691,
+  "unpacked_size": 3655654287,
+  "installation_space_required": 13438598376,
+  "build_commit": "8040feaab8df05cbd803215d8261364575236630",
+  "build_identity": "260fc676c7e9a732b08e81532e79568019ad45b42de858033bb66f2ea8a63768",
+  "guest_interface_abi": 1,
+  "minimum_wsx_core_version": "0.2.1",
+  "graphics_components": [
+    {
+      "name": "mesa",
+      "version": "26.1.8",
+      "inputs_sha256": "b39ffd636d0e0fc83dcd6b9c9b75afc30903afc0f50bad0cdc27284ec36104df"
+    },
+    {
+      "name": "venus",
+      "version": "26.2.4",
+      "inputs_sha256": "b39ffd636d0e0fc83dcd6b9c9b75afc30903afc0f50bad0cdc27284ec36104df"
+    },
+    {
+      "name": "aquamarine",
+      "version": "f31c47a1b9d300847d8fc3108ad959448103dfc1",
+      "inputs_sha256": "b39ffd636d0e0fc83dcd6b9c9b75afc30903afc0f50bad0cdc27284ec36104df"
+    },
+    {
+      "name": "hyprland",
+      "version": "efb50993780079460b0cbed1363e2166a2de1d9f",
+      "inputs_sha256": "b39ffd636d0e0fc83dcd6b9c9b75afc30903afc0f50bad0cdc27284ec36104df"
+    }
+  ],
+  "kernel_requirements": {
+    "selection_owner": "wsx-core",
+    "exact_kernel_release_and_symbol_crcs_required": true,
+    "opaque_producer_abi": 1,
+    "opaque_consumer_abi": 2,
+    "drm_embedded_bases_at_allocation_start": true,
+    "rejected_module_sha256": [
+      "70d83be693bc714378b41f22ff38f2a1d459b363b853be214114c5988600def0"
+    ]
+  },
+  "validation": {
+    "build": "passed",
+    "offline": "passed",
+    "wsl_boot": "not_run",
+    "gpu_first_frame": "not_run",
+    "desktop": "not_run",
+    "stability": "not_run"
+  },
+  "desktop_compatibility": {
+    "schema_version": 1,
+    "runtime_receipt_sha256": "617965791e6928e535a47ccff46b63983455e5f9dbcc581446776d3654841a10",
+    "guest_protocol_major": 1,
+    "guest_protocol_minor": 0,
+    "lifecycle_abi": 1,
+    "display_abi": 1,
+    "sharing_path": "opaque-v1",
+    "producer_abi": 1,
+    "consumer_abi": 2,
+    "retirement": "guest-stop-v1",
+    "guest_profile_sha256": "75bbd1b4bc4741642631d8d9d8413ac819b413b3fe60236073e290fca825d5c3",
+    "required_capabilities": [
+      "account.status",
+      "desktop.preflight",
+      "session.status",
+      "session.stop",
+      "display.query",
+      "display.apply",
+      "lifecycle.cli-v1"
+    ]
+  }
+}
