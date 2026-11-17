@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "source_delivery_schema": 2,
+  "distribution_id": "wsx-cachyos-plasma",
+  "image_version": "2026.11.5-r1",
+  "upstream_release": "2026.11.5",
+  "upstream_commit": "e6c22095c3ed4e51725a7cbf9870d453462eb1fb",
+  "wsx_revision": 1,
+  "architecture": "x86_64",
+  "archive_format": "tar.zst",
+  "asset_name": "wsx-cachyos-plasma-2026.11.5-r1-x86_64.rootfs.tar.zst",
+  "sha256": "f57865aa158671faa18280e650ea25bdfb79f0f878309ec8fa2d99e026499ed0",
+  "compressed_size": 2030647719,
+  "unpacked_size": 5892772790,
+  "installation_space_required": 20782707913,
+  "build_commit": "2281d078de4b3bc60b2fa143e511a9a52c97194b",
+  "build_identity": "4e3377ffcb43fe1c7b20823c74773538036e45498da222485b6026357bb737fc",
+  "guest_interface_abi": 1,
+  "minimum_wsx_core_version": "0.2.1",
+  "graphics_components": [
+    {
+      "name": "mesa",
+      "version": "26.1.8",
+      "inputs_sha256": "20dd99647d0631761d691607b9042632de209d86c246672458fbc8fe054bf43e"
+    },
+    {
+      "name": "venus",
+      "version": "26.2.4",
+      "inputs_sha256": "20dd99647d0631761d691607b9042632de209d86c246672458fbc8fe054bf43e"
+    },
+    {
+      "name": "kwin",
+      "version": "6.8.1",
+      "inputs_sha256": "20dd99647d0631761d691607b9042632de209d86c246672458fbc8fe054bf43e"
+    }
+  ],
+  "cpu_requirements": {
+    "architecture_level": "x86-64-v3"
+  },
+  "kernel_requirements": {
+    "selection_owner": "wsx-core",
+    "exact_kernel_release_and_symbol_crcs_required": true,
+    "opaque_producer_abi": 1,
+    "opaque_consumer_abi": 2,
+    "drm_embedded_bases_at_allocation_start": true,
+    "rejected_module_sha256": [
+      "70d83be693bc714378b41f22ff38f2a1d459b363b853be214114c5988600def0"
+    ]
+  },
+  "validation": {
+    "build": "passed",
+    "offline": "passed",
+    "wsl_boot": "not_run",
+    "gpu_first_frame": "not_run",
+    "desktop": "not_run",
+    "stability": "not_run"
+  },
+  "desktop_compatibility": {
+    "schema_version": 1,
+    "runtime_receipt_sha256": "617965791e6928e535a47ccff46b63983455e5f9dbcc581446776d3654841a10",
+    "guest_protocol_major": 1,
+    "guest_protocol_minor": 0,
+    "lifecycle_abi": 1,
+    "display_abi": 1,
+    "sharing_path": "opaque-v1",
+    "producer_abi": 1,
+    "consumer_abi": 2,
+    "retirement": "guest-stop-v1",
+    "guest_profile_sha256": "d97002a8484f7d590e6e19b9dd0f0efe6648eb8c25ae11464de7c61417f70d6d",
+    "required_capabilities": [
+      "account.status",
+      "desktop.preflight",
+      "session.status",
+      "session.stop",
+      "display.query",
+      "display.apply",
+      "lifecycle.cli-v1"
+    ]
+  }
+}

@@ -1,0 +1,222 @@
+{
+  "audit_scope": "Historical evidence reconstructed from original GitHub Actions logs, exact released assets, Git source trees and independently repeated CRC checks; no independent module rebuild or complete licensing attestation.",
+  "build_generation": "fd1f036e7bfb2dc2891f1b69026fd01f8ff6393d2f663201e3e5bf5697cf3860",
+  "job_log_sha256": "4c9d38e954611676a329dea8fd2ab786888058e4fa5bfbfef587ea73ee505a36",
+  "module_source_files_matched_to_build_commit": 163,
+  "reconstructed_build_inputs": {
+    "asset": "build-inputs-4d04ba76a8e9e4b17ac58fa939b79b7f4c1a4c01f57b80b84f2d1d84a80cc8b6.tar.gz",
+    "bytes": 795525,
+    "corresponding_source_complete": false,
+    "matches_original_workflow_log": true,
+    "sha256": "4d04ba76a8e9e4b17ac58fa939b79b7f4c1a4c01f57b80b84f2d1d84a80cc8b6"
+  },
+  "runner_dependencies_sha256": "c43858bcc1ca2af58dd412d1332064ff93631866b462d389fc03fb563cd30b8e",
+  "schema_version": 1,
+  "upstream_tree_evidence": "Git tree IDs fetched from the Microsoft GitHub Git commits API on 2026-11-17; same tree is not an independent proof of official binary reproducibility.",
+  "versions": [
+    {
+      "corresponding_source_complete": false,
+      "git_tree_api": [
+        "https://api.github.com/repos/microsoft/WSL2-Linux-Kernel/git/commits/d504d40ab83839cb61942a812a99d183c42227b9",
+        "https://api.github.com/repos/microsoft/WSL2-Linux-Kernel/git/commits/26d1ceb550876e1bcbd7a1d0369d948bea246ca3"
+      ],
+      "group_sha256": "75e844aa35469723befae612cdd380969044c35eea510def4c81b443dc625461",
+      "independently_recomputed_static_crc_match": true,
+      "kernel_build_id": "de17a562c219da52bb9bb56182d657b775f45676",
+      "kernel_image_sha256": "b3dc3a9c3774fda2b9d7bceac7495248df50a6e0cd4ba9596ef98933f384d495",
+      "kernel_package_sha256": "6786a074a6f7bcb6b3e010debc5dbf7110217feeda1dcb161ad12f40cddf7629",
+      "kernel_source_archive": {
+        "archive_prefix_components": 1,
+        "asset": "kernel-source-f9cd0405cb5b77f7e6166859c610a76ddd872e7dbfba4b68ceae0f3df42d2c9c.tar.gz",
+        "bytes": 256209121,
+        "files": 91265,
+        "git_tree_verified": "93d73e945e0cd96bd6f6919f06b2ede5641adb0a",
+        "sha256": "f9cd0405cb5b77f7e6166859c610a76ddd872e7dbfba4b68ceae0f3df42d2c9c"
+      },
+      "kernel_source_commit": "d504d40ab83839cb61942a812a99d183c42227b9",
+      "kernel_version": "6.18.54.1-1",
+      "module_archive": {
+        "asset": "modules_6.18.54.1-1.tar.gz",
+        "bytes": 3842056,
+        "sha256": "0183b60e18ab34ad6fd6b7a46c624c460b40fc29d2b1b51a2350dd5876f58cd9"
+      },
+      "module_metadata_sha256": "c404bec598b6dea2d429eea53745ff5489a4eab6ddc63e1363fcd36052f345f4",
+      "module_sources": {
+        "asset": "module-sources-bbc0bcbaf41abfea429db04c4f63cdca11a2af867d4d3fc78abe3e2fea00773b.tar.gz",
+        "files_verified": 164,
+        "sha256": "bbc0bcbaf41abfea429db04c4f63cdca11a2af867d4d3fc78abe3e2fea00773b"
+      },
+      "module_symvers_sha256": "7808f88c5721f643340a8add9ca8be3f3c30c878e9ccbfdcbb0088b2cf270050",
+      "modules": {
+        "drm_kms_helper.ko": {
+          "bytes": 5214000,
+          "sha256": "5cc4cca3d3efcdb804f314f602172c5f03498078b6fe9e7d0bf3700f8b574bc6"
+        },
+        "virtio-gpu.ko": {
+          "bytes": 4991400,
+          "sha256": "c83703853281fc9150a068ac8827685a817ae5d0e2b354a2aee628420c31e4fe"
+        },
+        "virtio_dma_buf.ko": {
+          "bytes": 332520,
+          "sha256": "b365882ef54b94882fda9e225beec7920e8be9bf39579720570480761d8afcc3"
+        },
+        "virtio_msg.ko": {
+          "bytes": 429360,
+          "sha256": "25a8b93ee71d54e486dcd1440e159801950f1fdc442729bed6eff74364ed38bc"
+        },
+        "virtio_msg_vsock.ko": {
+          "bytes": 856656,
+          "sha256": "be721a41328880b59eac438ac396c95f588e8b3c47c8edfeb427a62d597a876c"
+        },
+        "wsx_virtio_msg_pci.ko": {
+          "bytes": 585192,
+          "sha256": "ae484ba8900ea42f027651ec19af44ae155f4ee6f28cc30124ab9b4adc5e2864"
+        }
+      },
+      "package_reported_build_commit": "26d1ceb550876e1bcbd7a1d0369d948bea246ca3",
+      "package_revision_git_tree": "93d73e945e0cd96bd6f6919f06b2ede5641adb0a",
+      "publisher_verified": false,
+      "reconstructed_kernel_evidence": {
+        "Module.symvers": {
+          "bytes": 687610,
+          "path": "evidence-6.18.54.1-1/Module.symvers",
+          "sha256": "7808f88c5721f643340a8add9ca8be3f3c30c878e9ccbfdcbb0088b2cf270050"
+        },
+        "inspection.json": {
+          "bytes": 722,
+          "path": "evidence-6.18.54.1-1/inspection.json",
+          "sha256": "56742739742708a2ffaa35f1b7d919e662706c75688c9da718b795350028f9f1"
+        },
+        "kernel-exports.json": {
+          "bytes": 477344,
+          "path": "evidence-6.18.54.1-1/kernel-exports.json",
+          "sha256": "860e596dab765670dd8a09f5305ad38d56a4d6c935c0f8b1098618b81c4f787a"
+        },
+        "kernel_config": {
+          "bytes": 195376,
+          "path": "evidence-6.18.54.1-1/kernel_config",
+          "sha256": "abd360ecd8d7e27b43b3ffa78dd3cd79a2c5ed3e095bbc745a95301b06711396"
+        },
+        "static-crc-audit.json": {
+          "bytes": 1987,
+          "path": "evidence-6.18.54.1-1/static-crc-audit.json",
+          "sha256": "10252ce621c68a0828c2e0c7dfdb6adc2b21c69d67e6e3589332fd0e1ce71773"
+        },
+        "symvers-evidence.json": {
+          "bytes": 592,
+          "path": "evidence-6.18.54.1-1/symvers-evidence.json",
+          "sha256": "414d695878503d1c543c13992c49af112fffff88aec90323144ef906a7b9c24f"
+        }
+      },
+      "source_correspondence_verified": false,
+      "source_git_tree": "93d73e945e0cd96bd6f6919f06b2ede5641adb0a",
+      "source_materials_sha256": "a151f4a31c27c273f1cf4760ff56c5f57cfe9bf7163bda603fbd802cf28c3f6f",
+      "static_crc_match_reported_in_log": true,
+      "target_config_original_sha256": "abd360ecd8d7e27b43b3ffa78dd3cd79a2c5ed3e095bbc745a95301b06711396",
+      "target_config_prepared_sha256": "432cbd80e5b33149d4a28386a4cc44db246b351cf764ea8d868a4b0b853946db"
+    },
+    {
+      "corresponding_source_complete": false,
+      "git_tree_api": [
+        "https://api.github.com/repos/microsoft/WSL2-Linux-Kernel/git/commits/a989171929bed4ea681be8d77333845ce1c1732a",
+        "https://api.github.com/repos/microsoft/WSL2-Linux-Kernel/git/commits/75fe784cf9cf5fdd21dccfb4f397339c961c98aa"
+      ],
+      "group_sha256": "c2489041b865051d48e009cd44982a8fac4f31d94ab372dd0776b9c20c01295b",
+      "independently_recomputed_static_crc_match": true,
+      "kernel_build_id": "746c3677b684922ab4a9cc8c863d394238d87022",
+      "kernel_image_sha256": "4845ac8718804c91f3b5cbb9c09c856732612af4e1729faf402f727b0f3285b6",
+      "kernel_package_sha256": "42bcccebdde523ac272c97595a8e8d494db6b3c815bbfb8f86a1b87e9a397ac4",
+      "kernel_source_archive": {
+        "archive_prefix_components": 1,
+        "asset": "kernel-source-10eaa1c68419d937d93f970df937697b4152eb9626b46bb1ec0a55f9574a6aa7.tar.gz",
+        "bytes": 256315773,
+        "files": 91273,
+        "git_tree_verified": "caee93906e5d20a06448f519fa72b6bcc0f01a98",
+        "sha256": "10eaa1c68419d937d93f970df937697b4152eb9626b46bb1ec0a55f9574a6aa7"
+      },
+      "kernel_source_commit": "a989171929bed4ea681be8d77333845ce1c1732a",
+      "kernel_version": "6.18.58.1-1",
+      "module_archive": {
+        "asset": "modules_6.18.58.1-1.tar.gz",
+        "bytes": 3856065,
+        "sha256": "60ec9b1ca2dceaf6ee191a40bf030f076564b44d1be64b6a1db7eaa42fe18098"
+      },
+      "module_metadata_sha256": "8ec93c4387ac2fcc795f35ffa807007f9388ca4930828f285130321c7d213b58",
+      "module_sources": {
+        "asset": "module-sources-bbc0bcbaf41abfea429db04c4f63cdca11a2af867d4d3fc78abe3e2fea00773b.tar.gz",
+        "files_verified": 164,
+        "sha256": "bbc0bcbaf41abfea429db04c4f63cdca11a2af867d4d3fc78abe3e2fea00773b"
+      },
+      "module_symvers_sha256": "f1fb522d9116bac505ff0656090675d20e4593904078ded0d7332abdd04a0e77",
+      "modules": {
+        "drm_kms_helper.ko": {
+          "bytes": 5225976,
+          "sha256": "5653967eb32408a6b8152547bd2200efca0d0c48a94d26e1274699e591be4a54"
+        },
+        "virtio-gpu.ko": {
+          "bytes": 5005888,
+          "sha256": "275e993c2989f58b8238ea841fc3bbdf1705d40d3b77e2ee314d8b3819fd9e94"
+        },
+        "virtio_dma_buf.ko": {
+          "bytes": 333944,
+          "sha256": "db4313fb5181d64b268dd43889b3f7006245d76d5a70c5860394a22d5aa2f3bf"
+        },
+        "virtio_msg.ko": {
+          "bytes": 430792,
+          "sha256": "54be6cfe6827f8fd4d23ec87a2850c1f9151f3ffea13be969f75edc862d5c746"
+        },
+        "virtio_msg_vsock.ko": {
+          "bytes": 862864,
+          "sha256": "d5bfc7c96492d7bc69d33f8da0f57d1329616c627ee6cf7fffc446c1a5c21ab4"
+        },
+        "wsx_virtio_msg_pci.ko": {
+          "bytes": 587400,
+          "sha256": "f2ba8d85d2288a3894fab9009dbef8a764496c301837061f4fd477484a01f3b6"
+        }
+      },
+      "package_reported_build_commit": "75fe784cf9cf5fdd21dccfb4f397339c961c98aa",
+      "package_revision_git_tree": "caee93906e5d20a06448f519fa72b6bcc0f01a98",
+      "publisher_verified": false,
+      "reconstructed_kernel_evidence": {
+        "Module.symvers": {
+          "bytes": 688194,
+          "path": "evidence-6.18.58.1-1/Module.symvers",
+          "sha256": "f1fb522d9116bac505ff0656090675d20e4593904078ded0d7332abdd04a0e77"
+        },
+        "inspection.json": {
+          "bytes": 722,
+          "path": "evidence-6.18.58.1-1/inspection.json",
+          "sha256": "026807eeb2d6da2e4d55e125a379f4e087b051e6c6bb089f407c612418bdbc24"
+        },
+        "kernel-exports.json": {
+          "bytes": 477772,
+          "path": "evidence-6.18.58.1-1/kernel-exports.json",
+          "sha256": "174b67cea75a68ec61cfcffa992bb48f0d0ccf105140abda0d55ccdc04766ad6"
+        },
+        "kernel_config": {
+          "bytes": 195611,
+          "path": "evidence-6.18.58.1-1/kernel_config",
+          "sha256": "350bb895c0af6c4dbb90a596385baaa4cfb58dcc0c36c9be166edc9517bac760"
+        },
+        "static-crc-audit.json": {
+          "bytes": 1987,
+          "path": "evidence-6.18.58.1-1/static-crc-audit.json",
+          "sha256": "af57f3a78c8d6d29adbd92eb4eead2aa6825e0aff2e73c1f5e6ac03372319c59"
+        },
+        "symvers-evidence.json": {
+          "bytes": 592,
+          "path": "evidence-6.18.58.1-1/symvers-evidence.json",
+          "sha256": "433f00bf37ab6beaf4ed0baadfa158cbf72f5458a5bb49fe11712260f60533b9"
+        }
+      },
+      "source_correspondence_verified": false,
+      "source_git_tree": "caee93906e5d20a06448f519fa72b6bcc0f01a98",
+      "source_materials_sha256": "5f9a0551b4886167f9988663aa6547b8d43c95cca4f371f9a4d80b4ae04169ef",
+      "static_crc_match_reported_in_log": true,
+      "target_config_original_sha256": "350bb895c0af6c4dbb90a596385baaa4cfb58dcc0c36c9be166edc9517bac760",
+      "target_config_prepared_sha256": "151b35af6daa0a6438b98fe2bb785db00db10a4b6102e0ab59db4a41b1c1a54d"
+    }
+  ],
+  "workflow_run": "https://github.com/WSLd-wsx/wsld/actions/runs/43890582590",
+  "wsld_build_commit": "fd3310d26a2d2883d7714a253f634630a6954553"
+}

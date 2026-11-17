@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "updates": [
+    {
+      "baseline_receipt_sha256": "442f6032d8645c413b7398e2654c669169e79e9b46e79220134bb881b51d0561",
+      "replacement_receipt_sha256": "0cf491a5897f76e370f38810f7baf478d38873d55ceab4741e10ee2c29f395b2",
+      "guest_profiles": ["6826b8764ad9bc5c3d176de8a05a3cdf0032fe22eb4e1e67e47a739147c522f3"],
+      "changed_files": ["wsx-native-host.exe", "guest/drm_kms_helper.ko", "guest/virtio_dma_buf.ko", "guest/virtio-gpu.ko", "guest/virtio_msg.ko", "guest/virtio_msg_vsock.ko", "guest/wsx_virtio_msg_pci.ko"],
+      "automatic_selection": true,
+      "owner_configuration_abi": 2,
+      "hardware_acceptance": "iris-xe-r15-opaque-single-lifecycle"
+    },
+    {
+      "baseline_receipt_sha256": "442f6032d8645c413b7398e2654c669169e79e9b46e79220134bb881b51d0561",
+      "replacement_receipt_sha256": "9d521ccbf1baae258cddccdcdcfd326bd717b082d3e6184848133eeab8809116",
+      "guest_profiles": [
+        "75bbd1b4bc4741642631d8d9d8413ac819b413b3fe60236073e290fca825d5c3",
+        "d97002a8484f7d590e6e19b9dd0f0efe6648eb8c25ae11464de7c61417f70d6d"
+      ],
+      "changed_files": ["wsx-native-host.exe"],
+      "automatic_selection": false,
+      "owner_configuration_abi": 2,
+      "hardware_acceptance": "pending"
+    },
+    {
+      "baseline_receipt_sha256": "442f6032d8645c413b7398e2654c669169e79e9b46e79220134bb881b51d0561",
+      "replacement_receipt_sha256": "afd788d441a97952c02cf10f400aefbb03fd2bf1568db0cde9a6850b486752f2",
+      "guest_profiles": [
+        "75bbd1b4bc4741642631d8d9d8413ac819b413b3fe60236073e290fca825d5c3",
+        "d97002a8484f7d590e6e19b9dd0f0efe6648eb8c25ae11464de7c61417f70d6d"
+      ],
+      "changed_files": ["wsx-native-host.exe"],
+      "automatic_selection": false,
+      "owner_configuration_abi": 2,
+      "hardware_acceptance": "pending"
+    },
+    {
+      "baseline_receipt_sha256": "617965791e6928e535a47ccff46b63983455e5f9dbcc581446776d3654841a10",
+      "replacement_receipt_sha256": "e09a6ff1324dda48dfdf01313e6b358d2c8f50105b97e51795a2d46edc009901",
+      "guest_profiles": [
+        "75bbd1b4bc4741642631d8d9d8413ac819b413b3fe60236073e290fca825d5c3",
+        "d97002a8484f7d590e6e19b9dd0f0efe6648eb8c25ae11464de7c61417f70d6d"
+      ],
+      "changed_files": [
+        "wsx-native-host.exe",
+        "libvirglrenderer-1.dll",
+        "wsx-input-host.exe"
+      ],
+      "view_protocol": 1,
+      "automatic_selection": false
+    },
+    {
+      "baseline_receipt_sha256": "617965791e6928e535a47ccff46b63983455e5f9dbcc581446776d3654841a10",
+      "replacement_receipt_sha256": "84760c978aa6bf299854c355bd44eb1765c870c21f9be0c1913e20aeec11ddc9",
+      "guest_profiles": [
+        "75bbd1b4bc4741642631d8d9d8413ac819b413b3fe60236073e290fca825d5c3",
+        "d97002a8484f7d590e6e19b9dd0f0efe6648eb8c25ae11464de7c61417f70d6d"
+      ],
+      "changed_files": [
+        "wsx-native-host.exe",
+        "libvirglrenderer-1.dll",
+        "wsx-input-host.exe",
+        "guest/wsx_virtio_msg_pci.ko"
+      ],
+      "view_protocol": 1,
+      "automatic_selection": false,
+      "owner_configuration_abi": 2
+    },
+    {
+      "baseline_receipt_sha256": "617965791e6928e535a47ccff46b63983455e5f9dbcc581446776d3654841a10",
+      "replacement_receipt_sha256": "ec504e4fb9b0938b5c76ff38303204f35da5cdfc3f9f723c11b95037ee10a1dc",
+      "guest_profiles": [
+        "75bbd1b4bc4741642631d8d9d8413ac819b413b3fe60236073e290fca825d5c3",
+        "d97002a8484f7d590e6e19b9dd0f0efe6648eb8c25ae11464de7c61417f70d6d"
+      ],
+      "changed_files": [
+        "wsx-native-host.exe",
+        "libvirglrenderer-1.dll",
+        "wsx-input-host.exe",
+        "guest/wsx_virtio_msg_pci.ko"
+      ],
+      "view_protocol": 1,
+      "automatic_selection": false,
+      "owner_configuration_abi": 2,
+      "present_recovery_abi": 1
+    },
+    {
+      "baseline_receipt_sha256": "617965791e6928e535a47ccff46b63983455e5f9dbcc581446776d3654841a10",
+      "replacement_receipt_sha256": "442f6032d8645c413b7398e2654c669169e79e9b46e79220134bb881b51d0561",
+      "guest_profiles": [
+        "75bbd1b4bc4741642631d8d9d8413ac819b413b3fe60236073e290fca825d5c3",
+        "d97002a8484f7d590e6e19b9dd0f0efe6648eb8c25ae11464de7c61417f70d6d"
+      ],
+      "changed_files": [
+        "wsx-native-host.exe",
+        "libvirglrenderer-1.dll",
+        "wsx-input-host.exe",
+        "guest/wsx_virtio_msg_pci.ko"
+      ],
+      "view_protocol": 1,
+      "automatic_selection": false,
+      "owner_configuration_abi": 2,
+      "present_recovery_abi": 1,
+      "initial_window_title": "WSX desk"
+    }
+  ]
+}

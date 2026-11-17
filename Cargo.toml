@@ -1,0 +1,6 @@
+[workspace]
+members = ["core", "host", "abi-sdk"]
+resolver = "2"
+
+[workspace.package]
+license = "BUSL-1.1"

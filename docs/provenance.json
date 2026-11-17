@@ -1,0 +1,40 @@
+{
+  "reference": "wsx-proto/prototypes/rust-stack-probe (read-only migration input; no runtime dependency)",
+  "files": [
+    {
+      "source": "core/src/lib.rs",
+      "destination": "wsld/core/src/tasks.rs",
+      "sha256": "2b6439cf8c00d6dc476c1ea3c33b70f5e0720a821eb9e7a46d952c15be3fd1b3"
+    },
+    {
+      "source": "host/src/bridge.rs",
+      "destination": "wsld/host/src/bridge.rs",
+      "sha256": "051cba8889b727905d82c867ad4028331e2c018733be910044c7b4488fcc0778"
+    },
+    {
+      "source": "host/src/windows.rs",
+      "destination": "wsld/host/src/windows.rs",
+      "sha256": "4d5b11072ccd8bdbc8ede14931e0ba318c066cf001393dd3df78d4dc524a8f11"
+    },
+    {
+      "source": "tauri-pro/icons/icon.ico",
+      "destination": "wsld/host/resources/icon.ico",
+      "sha256": "a2890d5332f23528ac334a2fe960f7be473f9f5ddb13ecd0be9c4263ac0c7bd1"
+    },
+    {
+      "source": "scripts/msvc-env.ps1",
+      "destination": "wsld/scripts/msvc-env.ps1",
+      "sha256": "38fab0972e4cf63a45075c8dd4b51eef858c867c85bd4f9e399077dbaabcb7ed"
+    },
+    {
+      "source": "scripts/argv0-probe.c",
+      "destination": "wsld/tests/argv0-probe.c",
+      "sha256": "94eb3efc5dba022063f4e87fc97ec75d271c654374dcda9ec2af2f94fc8c554f"
+    },
+    {
+      "source": "scripts/wrong-arch.c",
+      "destination": "wsld/tests/wrong-arch.c",
+      "sha256": "4a3e2d8d6919c7f8db8f372fda728bf6af6e4e2e4e842503264d07b01e3bc336"
+    }
+  ]
+}

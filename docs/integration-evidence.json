@@ -1,0 +1,65 @@
+{
+  "scope": "Read-only source/evidence identities; not product runtime dependencies or new acceptance",
+  "references": [
+    {
+      "reference": "wsx-rootfs/docs/release-protocol.md",
+      "sha256": "7897fedbbaadde78320c40506b0542bbd9f090b8e087a0f5da09498e9775c767",
+      "available": true
+    },
+    {
+      "reference": "wsx-rootfs/docs/guest-abi.md",
+      "sha256": "52a3fe9513f4e47f1488fc5bf445755e2c2935cc69269ce604076e1990763036",
+      "available": true
+    },
+    {
+      "reference": "wsx-rootfs/docs/component-ownership.md",
+      "sha256": "4c5151fa0b4f95e734941e10f343a124e08660c1a582a52be1880ee2f1538cb2",
+      "available": true
+    },
+    {
+      "reference": "wsx-rootfs/docs/component-package.md",
+      "sha256": "087428290c1d387bbaddd668febe0fbd5173a7c9a215b39fbf327efdc2dec8c4",
+      "available": true
+    },
+    {
+      "reference": "wsx-rootfs/docs/local-component-admission.md",
+      "sha256": "33b7074d493e68ae9cba08555f5164e39c0e833ac3c33a9943eee8b1ad8ff670",
+      "available": true
+    },
+    {
+      "reference": "wsx-rootfs/docs/cachyos-validation.md",
+      "sha256": "56e5a40de8864b56a0ab66cdb50963ff3612fce32ab845ee25a195832bd8eaa7",
+      "available": true
+    },
+    {
+      "reference": "wsx-rootfs/guest/wsx-guest.py",
+      "sha256": "a4879aa3f8cd86ff439548780e3bb492e4e82d001eea27e40cd5d2e851dbb096",
+      "available": true
+    },
+    {
+      "reference": "wsx-rootfs/scripts/archive.py",
+      "sha256": "f34ee0f0bd740199c6b1f0adf5a8badfbdd091f2ff3dd5904d2c768e6cc7f8a3",
+      "available": true
+    },
+    {
+      "reference": "wsx-rootfs/scripts/contract.py",
+      "sha256": "91a60ef3b4d710760f3153359a3e0807617e23e77adadd0930580d76d9dd64d4",
+      "available": true
+    },
+    {
+      "reference": "wsx-proto/prototypes/venus-rutabaga/device-host/production/DIRECT-HOST.md",
+      "sha256": "de87353dfa49cacff8c5ef28f13b664a6525e77aed00d47a18cf441305ca44ab",
+      "available": true
+    },
+    {
+      "reference": "wsx-proto/prototypes/venus-rutabaga/device-host/production/ROOTFS-HANDOFF.md",
+      "sha256": "918071f633954b147ee7dfe3e55a9eeb9d4a241d8eb68970e5c386096b393d89",
+      "available": true
+    },
+    {
+      "reference": "wsx-proto/artifacts/venus-rutabaga/rootfs-cachyos-r2-start-01/result.json",
+      "sha256": "0d1f8c7c66cb68793201c65b68e33a2323bd7e41fc220ffea9feeea79def4674",
+      "available": true
+    }
+  ]
+}

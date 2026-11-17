@@ -1,0 +1,9 @@
+# Preserve official license and notice bytes across Windows and WSL checkouts.
+/LICENSE -text
+/core/LICENSE -text
+/core/CHANGE-LICENSE-APACHE-2.0.txt -text
+/licenses/** -text
+/gui/upstream-notices/** -text
+/core/data/UNICODE-LICENSE.txt -text
+/integration/LICENSE -text
+/Cargo.lock text eol=lf

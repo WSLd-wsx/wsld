@@ -1,0 +1,10 @@
+{
+  "files": {
+    "drm_client_event.c": "9bc2c8d5265bf7493e9f220b2e407177835125fcd6cc543e1a639de11ffcf38f",
+    "drm_fb_helper.c": "9064dedaa8ac9f9a97a89cc34b7517d085a197a86c8378b27b8a1f3fa8cf7723",
+    "drm_file.c": "dd7230cb5a3748248a58bb9ee12e3ac351ecfb81df99b08fc4cd51b6e12f2a75",
+    "drm_modeset_helper.c": "3df5e79ec921658caa9c98216600ddeb1cdf3ee71498f0d978987524059f7edb"
+  },
+  "schema_version": 1,
+  "upstream_commit": "d504d40ab83839cb61942a812a99d183c42227b9"
+}
