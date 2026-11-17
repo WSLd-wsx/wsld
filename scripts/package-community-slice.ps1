@@ -26,7 +26,7 @@ foreach ($name in @('LICENSE','NOTICE','LICENSING.md','THIRD-PARTY-NOTICES.md','
     if (-not (Test-Path -LiteralPath $source)) { throw "Required Core notice material missing: $name" }
     Copy-Item -LiteralPath $source -Destination (Join-Path $content $name) -Recurse
 }
-foreach ($name in @('integration\LICENSE','integration\graphics-opaque-probe\APACHE-2.0.txt','integration\graphics-opaque-probe\README.md','core\data\UNICODE-LICENSE.txt','core\LICENSE','core\CHANGE-LICENSE-APACHE-2.0.txt')) {
+foreach ($name in @('integration\LICENSE','integration\graphics-identity\PROVENANCE.md','integration\graphics-opaque-probe\APACHE-2.0.txt','integration\graphics-opaque-probe\README.md','core\data\UNICODE-LICENSE.txt','core\LICENSE','core\CHANGE-LICENSE-APACHE-2.0.txt')) {
     $source = Join-Path $repo $name
     if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
         throw "Required Core notice material missing: $name"

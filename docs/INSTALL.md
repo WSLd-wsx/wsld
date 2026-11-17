@@ -149,12 +149,14 @@ remains the structured import-only path for automation.
 
 Desktop launch checks the declared graphics runtime in the local cache. If it is
 missing, Core can prepare it from `graphics/reference-RECEIPT_PREFIX` beside the
-product executable. It verifies the exact receipt, component and identity-tool
+product executable. It verifies the exact receipt and component
 hashes, stages into a new directory under the store lock, verifies again and
 renames it into the cache. Existing or interrupted data is retained. Product build
-scripts require `GraphicsReference` and `GraphicsIdentityTools` inputs and package
+scripts require `GraphicsReference` inputs and package
 the supplied verified component bundles on every build. Supply all runtime receipts
 needed by the images distributed with that product; unknown pairings still reject.
+Display and Vulkan identity detection is provided by the product executable and
+does not require separately packaged identity tools.
 The public image metadata currently declares no graphics binary download source,
 so an executable distributed without its matching component package cannot fetch it.
 No image or desktop acceptance is implied by packaging.

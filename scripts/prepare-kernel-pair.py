@@ -55,14 +55,6 @@ def main():
         if source == args.modules:
             result[name] = module_manifest['files'][name]
         verify(args.output, name, result[name])
-    tools = {'adapter-inventory.exe': '4cef7ea4d19a49dd8e6aff486a0b99e9d3e67adede1f0f32c6b4371f9482e6ea',
-             'vulkan-identity.exe': '7b026cfc76c31b72a0151b308285c3ba194cf0b028758c9100ae9702345ad066'}
-    for name, expected in tools.items():
-        if digest(args.baseline / name) != expected:
-            raise ValueError(f'Identity tool digest mismatch: {name}')
-        shutil.copyfile(args.baseline / name, args.output / name)
-        if digest(args.output / name) != expected:
-            raise ValueError(f'Identity tool changed: {name}')
     (args.output / 'verified-files.json').write_text(json.dumps(result, indent=2) + '\n')
     evidence = {'schema_version': 1, 'baseline_receipt_sha256': BASE,
                 'module_receipt_sha256': MODULES, 'candidate_receipt_sha256': digest(args.output / 'verified-files.json'),

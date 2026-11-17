@@ -292,6 +292,18 @@ fn observe_staging_capabilities(dir: &Path, selected: &Value) -> Result<Value, S
 /// establishes necessary hardware conditions; Guest and runtime admission
 /// remain part of desktop startup.
 
+fn identity_executable() -> Result<PathBuf, String> {
+    let current = std::env::current_exe().map_err(|e| format!("Cannot locate WSX executable: {e}"))?;
+    let executable = current.with_file_name("wsld.exe");
+    crate::candidate::reject_reparse(&executable)?;
+    let size = fs::metadata(&current).map_err(|e| e.to_string())?.len();
+    let target_size = fs::metadata(&executable).map_err(|e| format!("Cannot locate WSX CLI: {e}"))?.len();
+    if size == 0 || size != target_size || crate::catalog::hash_file(&current, size)? != crate::catalog::hash_file(&executable, size)? {
+        return Err("WSX CLI differs from the running product executable".into());
+    }
+    Ok(executable)
+}
+
 pub(crate) fn install_graphics_preflight() -> Result<(), String> {
     use std::os::windows::ffi::OsStrExt;
     #[link(name = "kernel32")]
@@ -307,31 +319,6 @@ pub(crate) fn install_graphics_preflight() -> Result<(), String> {
         || unsafe { GetDriveTypeW(volume.as_ptr()) } != 3 {
         return Err("Cannot check graphics: WSX must run from a local fixed drive. Move the complete WSX package to a local drive and try again.".into());
     }
-    let graphics = package.join("graphics");
-    crate::candidate::reject_reparse(&graphics)?;
-    let mut references = fs::read_dir(&graphics).map_err(|e| format!("Cannot check graphics: packaged graphics tools are unavailable ({e}). Reinstall the complete WSX package."))?
-        .collect::<Result<Vec<_>, _>>().map_err(|e| format!("Cannot inspect graphics tools: {e}"))?;
-    references.sort_by_key(|e| e.file_name());
-    let tools = [("adapter-inventory.exe", "4cef7ea4d19a49dd8e6aff486a0b99e9d3e67adede1f0f32c6b4371f9482e6ea"),
-        ("vulkan-identity.exe", "7b026cfc76c31b72a0151b308285c3ba194cf0b028758c9100ae9702345ad066")];
-    let mut found = None;
-    for entry in references {
-        if !entry.file_name().to_string_lossy().starts_with("reference-") { continue; }
-        let dir = entry.path();
-        crate::candidate::reject_reparse(&dir)?;
-        if !entry.file_type().map_err(|e| e.to_string())?.is_dir() { continue; }
-        let mut verified = true;
-        for (name, expected) in tools {
-            let path = dir.join(name);
-            crate::candidate::reject_reparse(&path)?;
-            let Ok(meta) = fs::metadata(&path) else { verified = false; break; };
-            if !meta.is_file() || meta.len() == 0 || meta.len() > 32 * 1024 * 1024 || crate::catalog::hash_file(&path, meta.len())? != expected {
-                verified = false; break;
-            }
-        }
-        if verified { found = Some(dir); break; }
-    }
-    let source = found.ok_or("Cannot check graphics: verified display and Vulkan tools are missing. Reinstall the complete WSX package.")?;
     let diagnostics = crate::store::data_root()?.join("diagnostics");
     crate::candidate::reject_reparse(&diagnostics)?;
     fs::create_dir_all(&diagnostics).map_err(|e| format!("Cannot prepare graphics diagnostics: {e}"))?;
@@ -339,23 +326,16 @@ pub(crate) fn install_graphics_preflight() -> Result<(), String> {
     let nonce = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|e| e.to_string())?.as_nanos();
     let dir = diagnostics.join(format!("install-graphics-{}-{nonce}", std::process::id()));
     fs::create_dir(&dir).map_err(|e| format!("Cannot create graphics diagnostics: {e}"))?;
-    for (name, expected) in tools {
-        let target = dir.join(name);
-        fs::copy(source.join(name), &target).map_err(|e| format!("Cannot stage graphics tool: {e}"))?;
-        crate::candidate::reject_reparse(&target)?;
-        let size = fs::metadata(&target).map_err(|e| e.to_string())?.len();
-        if size == 0 || size > 32 * 1024 * 1024 || crate::catalog::hash_file(&target, size)? != expected {
-            return Err("Cannot check graphics: staged graphics tool failed verification".into());
-        }
-    }
-    let read_inventory = |name: &str| -> Result<Value, String> {
-        let mut command = Command::new(dir.join(name));
+    let identity = identity_executable()?;
+    let read_inventory = |kind: &str| -> Result<Value, String> {
+        let mut command = Command::new(&identity);
+        command.args(["--internal-graphics-identity", kind]);
         for variable in ["VK_DRIVER_FILES", "VK_ICD_FILENAMES", "VK_ADD_DRIVER_FILES", "VK_INSTANCE_LAYERS", "VK_LAYER_PATH", "VK_ADD_LAYER_PATH"] { command.env_remove(variable); }
-        let text = captured(command, &dir, name, None, 30).map_err(|e| format!("Cannot check graphics adapter: {e}. Check your Vulkan graphics driver."))?;
+        let text = captured(command, &dir, kind, None, 30).map_err(|e| format!("Cannot check graphics adapter: {e}. Check your Vulkan graphics driver."))?;
         serde_json::from_str(&text).map_err(|e| format!("Cannot read graphics adapter inventory: {e}"))
     };
-    let paths = read_inventory("adapter-inventory.exe")?;
-    let devices = read_inventory("vulkan-identity.exe")?;
+    let paths = read_inventory("display")?;
+    let devices = read_inventory("vulkan")?;
     let selected = crate::graphics::select_active_adapter(&paths, &devices).map_err(|e|
         format!("Cannot determine the graphics adapter: {}. Update the graphics driver and check your display configuration.", crate::graphics_diagnostics::adapter_failure_reason(&paths, &devices, &e)))?;
     let bytes = include_bytes!(concat!(env!("OUT_DIR"), "/opaque-buffer-probe.exe"));
@@ -411,6 +391,10 @@ fn adapter(dir: &Path, action: &str, args: &[&str]) -> Result<Value, String> {
     .args(["-Action", action, "-Directory"])
     .arg(dir)
     .args(args);
+    if action == "Inspect" {
+        c.arg("-IdentityExecutable").arg(identity_executable()?);
+        for variable in ["VK_DRIVER_FILES", "VK_ICD_FILENAMES", "VK_ADD_DRIVER_FILES", "VK_INSTANCE_LAYERS", "VK_LAYER_PATH", "VK_ADD_LAYER_PATH"] { c.env_remove(variable); }
+    }
     serde_json::from_str(&captured(c, dir, action, None, 30)?)
         .map_err(|e| format!("Invalid Windows adapter response: {e}"))
 }
@@ -698,23 +682,6 @@ fn start_with_registration(
     };
     // Pin only the experimentally verified closure; no stable-release claim.
     crate::graphics::verify_start_runtime(runtime)?;
-    for (file, digest) in [
-        (
-            "adapter-inventory.exe",
-            "4cef7ea4d19a49dd8e6aff486a0b99e9d3e67adede1f0f32c6b4371f9482e6ea",
-        ),
-        (
-            "vulkan-identity.exe",
-            "7b026cfc76c31b72a0151b308285c3ba194cf0b028758c9100ae9702345ad066",
-        ),
-    ] {
-        let p = runtime.join(file);
-        crate::candidate::reject_reparse(&p)?;
-        let size = fs::metadata(&p).map_err(|e| e.to_string())?.len();
-        if size > 32 * 1024 * 1024 || crate::catalog::hash_file(&p, size)? != digest {
-            return Err(format!("Identity tool digest mismatch: {file}"));
-        }
-    }
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|e| e.to_string())?
@@ -729,13 +696,8 @@ fn start_with_registration(
         if product_root.is_some() && ["wsx-native-host.exe", "wsx-input-host.exe", "libvirglrenderer-1.dll", "libepoxy-0.dll"].contains(&file.as_str()) { continue; }
         fs::copy(runtime.join(file), dir.join(file)).map_err(|e| e.to_string())?;
     }
-    for file in [
-        "verified-files.json",
-        "adapter-inventory.exe",
-        "vulkan-identity.exe",
-    ] {
-        fs::copy(runtime.join(file), dir.join(file)).map_err(|e| e.to_string())?;
-    }
+    fs::copy(runtime.join("verified-files.json"), dir.join("verified-files.json"))
+        .map_err(|e| e.to_string())?;
     if product_root.is_none() { crate::graphics::verify_reference(&dir, "6.18.54.1-microsoft-standard-WSL2")?; }
     // An independently pinned diagnostic group can be tested without changing
     // the verified Host/renderer receipt. Its Guest admission remains separate.
@@ -770,23 +732,6 @@ fn start_with_registration(
         if crate::catalog::hash_file(&dest.join("module-group.json"), size)? != group_pin { return Err("Staged module group manifest mismatch".into()); }
         module_manifest_sha256 = Some(group_pin);
     }
-    for (file, digest) in [
-        (
-            "adapter-inventory.exe",
-            "4cef7ea4d19a49dd8e6aff486a0b99e9d3e67adede1f0f32c6b4371f9482e6ea",
-        ),
-        (
-            "vulkan-identity.exe",
-            "7b026cfc76c31b72a0151b308285c3ba194cf0b028758c9100ae9702345ad066",
-        ),
-    ] {
-        let p = dir.join(file);
-        let size = fs::metadata(&p).map_err(|e| e.to_string())?.len();
-        if size > 32 * 1024 * 1024 || crate::catalog::hash_file(&p, size)? != digest {
-            return Err(format!("Staged identity tool digest mismatch: {file}"));
-        }
-    }
-
     for (name, bytes) in [
         (
             "desktop.ps1",

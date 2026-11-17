@@ -1,5 +1,10 @@
 use std::{thread, time::Duration};
 pub fn execute(args: &[String]) -> Result<(), String> {
+    if let [flag, kind] = args {
+        if flag == "--internal-graphics-identity" {
+            return wsx_core::graphics_identity_probe(kind);
+        }
+    }
     if args.first().is_some_and(|s| s == "-t" || s == "--terminate") {
         let code = terminate(args)?;
         return if code == 0 { Ok(()) } else { Err(format!("wsl.exe exited with code {code}")) };
@@ -191,6 +196,12 @@ fn parse_install(args: &[String]) -> Result<(&str, wsx_core::release::Channel, b
 mod tests {
     use super::*;
     use wsx_core::release::Channel;
+
+    #[test]
+    fn internal_graphics_identity_rejects_unknown_kind() {
+        let args = vec!["--internal-graphics-identity".to_owned(), "invalid".to_owned()];
+        assert!(execute(&args).is_err());
+    }
 
     #[test]
     fn terminate_requires_exactly_one_distribution() {

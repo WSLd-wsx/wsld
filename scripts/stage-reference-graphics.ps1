@@ -1,6 +1,5 @@
 # Explicit local candidate staging; inputs are checked again by wsld.exe.
 param([Parameter(Mandatory=$true)][string]$Reference,
-      [Parameter(Mandatory=$true)][string]$IdentityTools,
       [Parameter(Mandatory=$true)][string]$Destination)
 $ErrorActionPreference='Stop'
 if(Test-Path -LiteralPath $Destination){throw 'Reference destination must be new'}
@@ -21,7 +20,4 @@ foreach($entry in $files.PSObject.Properties){
     Copy-Item -LiteralPath $source -Destination (Join-Path $Destination $entry.Name)
 }
 Copy-Item -LiteralPath $receipt -Destination $Destination
-foreach($name in @('adapter-inventory.exe','vulkan-identity.exe')){
-    Copy-Item -LiteralPath (Join-Path $IdentityTools $name) -Destination $Destination
-}
 Write-Output $Destination

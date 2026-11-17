@@ -9,7 +9,8 @@ directories. The previously distributed bytes retain their original license.
 
 Core may accept that one file as absent only for this exact pinned receipt. If
 the file is present, Core continues to verify it. Every other receipt entry,
-Native component, identity tool and kernel module retains its existing checks.
+Native component and kernel module retain their existing checks. Display and
+Vulkan identity queries are compiled into the product executable.
 The verifier reports `unused_guest_script_omitted` when this exception applies.
 Other receipts cannot use this exception without a separate source and runtime
 review; packaging rejects an unreviewed launcher instead of silently shipping it.

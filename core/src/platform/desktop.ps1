@@ -1,7 +1,7 @@
 # Windows-only process, registry and HCS adapter. Core owns policy and state.
 param([Parameter(Mandatory=$true)][ValidateSet('Inspect','Observe','SignalStop')][string]$Action,
       [Parameter(Mandatory=$true)][string]$Directory,
-      [string]$Registration,[string]$Vm,[string]$Instance,[switch]$AllowConcurrent)
+      [string]$Registration,[string]$Vm,[string]$Instance,[string]$IdentityExecutable,[switch]$AllowConcurrent)
 $ErrorActionPreference='Stop'
 [Console]::OutputEncoding=New-Object System.Text.UTF8Encoding($false)
 $exe=Join-Path $Directory 'wsx-native-host.exe'
@@ -15,9 +15,10 @@ if($Action -eq 'Inspect'){
     if($LASTEXITCODE -ne 0){throw 'HCS discovery failed'}
     $identityMatches=[regex]::Matches($listing,'(?im)^\s*([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\s*\r?\n\s*VM,.*\bWSL\b')
     if($identityMatches.Count -ne 1){throw 'Expected exactly one running WSL VM'}
-    $paths=& (Join-Path $Directory 'adapter-inventory.exe')
+    if (!$IdentityExecutable) { throw 'Graphics identity executable is unavailable' }
+    $paths=& $IdentityExecutable --internal-graphics-identity display
     if($LASTEXITCODE -ne 0){throw 'Display inventory failed'}
-    $devices=& (Join-Path $Directory 'vulkan-identity.exe')
+    $devices=& $IdentityExecutable --internal-graphics-identity vulkan
     if($LASTEXITCODE -ne 0){throw 'Vulkan inventory failed; inspect the Vulkan loader and graphics driver. Staging Copy is not yet admitted.'}
     @{vm=$identityMatches[0].Groups[1].Value;instance=[guid]::NewGuid().ToString('B');
       disk=$entries[0].BasePath;paths_json=($paths -join "`n");

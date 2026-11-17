@@ -6,12 +6,14 @@ not a substitute for those inputs or a runtime dependency.
 
 Use native Windows Rust 1.95.0, x86_64-pc-windows-msvc, Visual Studio x64 tools
 and Windows SDK. `build.cmd -Evidence <unused path> [-Toolchain <Rust directory>]`
-requires `-GraphicsReference` (one or more verified bundle directories) and
-`-GraphicsIdentityTools` for every product package, and uses an isolated NTFS cache
+requires `-GraphicsReference` (one or more verified bundle directories) for
+product packages, and uses an isolated NTFS cache
 under TEMP, overridable with WSX_BUILD_CACHE. Core Cargo builds remain independent
 of component bundles. Sources
 may reside on WSL; Cargo output and registry SQLite must reside on NTFS. Cache
 contents are disposable development prerequisites, never deployment dependencies.
+Display and Vulkan identity queries are compiled into Core and run through an
+isolated invocation of the same product executable.
 Both builds use lockfiles. No Node, Python or gh is needed by the product.
 
 Public: cargo test --locked --target x86_64-pc-windows-msvc; build.cmd archives
