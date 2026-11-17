@@ -30,6 +30,29 @@ pub mod store;
 pub mod tasks;
 pub mod timezone;
 
+/// Internal subprocess entry point for read-only display and Vulkan identity queries.
+pub fn graphics_identity_probe(kind: &str) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        extern "C" {
+            fn wsx_display_inventory() -> i32;
+            fn wsx_vulkan_identity() -> i32;
+        }
+        let result = match kind {
+            "display" => unsafe { wsx_display_inventory() },
+            "vulkan" => unsafe { wsx_vulkan_identity() },
+            _ => return Err("Unknown graphics identity query".into()),
+        };
+        if result != 0 { return Err(format!("Graphics identity query failed ({result})")); }
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = kind;
+        Err("Graphics identity query requires Windows".into())
+    }
+}
+
 fn inventory_desktop(index: &store::Index, name: &str, disk: &str, guid: &str) -> (String, Option<String>) {
     let recorded = index.instances.iter().any(|item| item.phase != "unregistered" && item.registration.eq_ignore_ascii_case(name));
     if !recorded { return ("not_owned".into(), None); }

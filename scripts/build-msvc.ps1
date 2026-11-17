@@ -1,6 +1,5 @@
 param([string]$Toolchain, [Parameter(Mandatory=$true)][string]$Evidence, [switch]$Acceptance,
       [Parameter(Mandatory=$true)][string[]]$GraphicsReference,
-      [Parameter(Mandatory=$true)][string]$GraphicsIdentityTools,
       [string]$GuestAdapterCatalog, [string]$HyprlandAdapter, [string]$PlasmaAdapter,
       [string]$GuestAdapterNotices, [string]$GraphicsProductDirectory, [string]$GraphicsRuntimeCatalog,
       [switch]$DiagnosticSimulateOpaqueUnavailable)
@@ -162,7 +161,7 @@ try {
         }
     }
     foreach ($reference in $GraphicsReference) {
-        & "$PSScriptRoot\package-graphics.ps1" -Package $package -Reference $reference -IdentityTools $GraphicsIdentityTools
+        & "$PSScriptRoot\package-graphics.ps1" -Package $package -Reference $reference
     }
     $hashes = @(Get-FileHash "$package\*.exe" -Algorithm SHA256)
     if (@($hashes.Hash | Select-Object -Unique).Count -ne 1) { throw 'Single PE hash contract failed' }

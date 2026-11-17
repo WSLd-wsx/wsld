@@ -280,7 +280,7 @@ fn ensure_packaged_runtime_to(root: &std::path::Path, plan: &Value, package: &st
     let reference_digest = crate::graphics::reference_receipt_digest(&source)?;
     let entries: Value = serde_json::from_slice(&receipt).map_err(|e| format!("Parse packaged receipt: {e}"))?;
     let mut names: Vec<String> = entries.as_object().ok_or("Invalid packaged receipt")?.keys().cloned().collect();
-    names.extend(["verified-files.json", "adapter-inventory.exe", "vulkan-identity.exe"].into_iter().map(str::to_owned));
+    names.push("verified-files.json".to_owned());
     for name in names {
         if crate::graphics::omitted_reference_file(&reference_digest, &name) { continue; }
         if name.contains(['\\', ':']) || name.split('/').any(|p| p.is_empty() || p == "." || p == "..") {

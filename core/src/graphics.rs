@@ -447,17 +447,6 @@ pub fn verify_start_runtime(directory: &std::path::Path) -> Result<(), String> {
     if verified["vm_exit_aperture_contract"] != true {
         return Err("Desktop startup requires the paired VM-exit aperture runtime; earlier components remain observation-only".into());
     }
-    for (name, digest) in [
-        ("adapter-inventory.exe", "4cef7ea4d19a49dd8e6aff486a0b99e9d3e67adede1f0f32c6b4371f9482e6ea"),
-        ("vulkan-identity.exe", "7b026cfc76c31b72a0151b308285c3ba194cf0b028758c9100ae9702345ad066"),
-    ] {
-        let path = directory.join(name);
-        #[cfg(windows)] crate::candidate::reject_reparse(&path)?;
-        let size = std::fs::metadata(&path).map_err(|e| format!("Inspect {name}: {e}"))?.len();
-        if size > 32*1024*1024 || crate::catalog::hash_file(&path,size)? != digest {
-            return Err(format!("Identity tool digest mismatch: {name}"));
-        }
-    }
     Ok(())
 }
 

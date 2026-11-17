@@ -1,7 +1,6 @@
 param([Parameter(Mandatory=$true)][string]$Toolchain,
       [Parameter(Mandatory=$true)][string]$Evidence,
       [Parameter(Mandatory=$true)][string]$Coverage,
-      [Parameter(Mandatory=$true)][string]$GraphicsIdentityTools,
       [string]$KernelBuilder)
 $ErrorActionPreference = 'Stop'
 if (Test-Path -LiteralPath $Evidence) { throw 'Evidence directory must be new' }
@@ -20,4 +19,4 @@ $references = @($scan.targets | ForEach-Object {
     Split-Path -Parent (Join-Path $Coverage $record.receipt)
 } | Select-Object -Unique)
 if ($references.Count -eq 0) { throw 'No verified graphics component bundles were produced' }
-& (Join-Path $PSScriptRoot 'build-msvc.ps1') -Toolchain $Toolchain -Evidence (Join-Path $Evidence 'product') -GraphicsReference $references -GraphicsIdentityTools $GraphicsIdentityTools
+& (Join-Path $PSScriptRoot 'build-msvc.ps1') -Toolchain $Toolchain -Evidence (Join-Path $Evidence 'product') -GraphicsReference $references
