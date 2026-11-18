@@ -48,7 +48,7 @@ pub fn execute(args: &[String]) -> Result<(), String> {
     match args {
         [s] if s == "--check-environment" => println!("{}", wsx_core::install::check_environment()?),
         [] => help(),
-        [s] if s == "--help" || s == "help" => help(),
+        [s] if matches!(s.as_str(), "--help" | "-h" | "help") => help(),
         [s] if s == "--version" => println!("WSX Core 0.2.0-dev (ABI 2)"),
         [s] if s == "timezone" => println!("{}", wsx_core::timezone::system_iana()?),
         [action, operation, id, flag, directory] if action == "candidate" && operation == "desktop-restart-check" && flag == "--reference-runtime" => {
@@ -108,7 +108,11 @@ pub fn execute(args: &[String]) -> Result<(), String> {
             }
         }
         [s] if s == "list" || s == "status" => println!("{}", wsx_core::inventory()?),
-        [a, b] if (a == "-l" || a == "--list") && (b == "-o" || b == "--online") || (a == "-o" || a == "--online") && (b == "-l" || b == "--list") => {
+        [flag] if is_list(flag) => return list_local(false),
+        [a, b] if (is_list(a) && is_verbose(b)) || (is_verbose(a) && is_list(b)) => {
+            return list_local(true);
+        }
+        [a, b] if is_list(a) && (b == "-o" || b == "--online") || (a == "-o" || a == "--online") && is_list(b) => {
             let result = wsx_core::release::online()?;
             println!("{:<28} {:<20} INSTALL COMMAND", "DISTRIBUTION", "VERSION");
             for row in result["releases"].as_array().ok_or("Invalid release catalog")? {
@@ -159,8 +163,33 @@ pub fn execute(args: &[String]) -> Result<(), String> {
     }
     Ok(())
 }
+fn is_list(arg: &str) -> bool {
+    matches!(arg, "-l" | "--list")
+}
+
+fn is_verbose(arg: &str) -> bool {
+    matches!(arg, "-v" | "--verbose" | "-verbose")
+}
+
+fn list_local(verbose: bool) -> Result<(), String> {
+    let mut args = vec!["--list"];
+    if verbose {
+        args.push("--verbose");
+    }
+    let code = run_wsl(&args)?;
+    if code == 0 {
+        Ok(())
+    } else {
+        Err(format!("wsl.exe exited with code {code}"))
+    }
+}
+
 pub(crate) fn terminate(args: &[String]) -> Result<i32, String> {
     if args.len() != 2 || args[1].is_empty() { return Err("Usage: wsld.exe --terminate <Distro>".into()); }
+    run_wsl(args)
+}
+
+fn run_wsl(args: &[impl AsRef<std::ffi::OsStr>]) -> Result<i32, String> {
     #[cfg(windows)]
     {
         let status = std::process::Command::new("wsl.exe").args(args).status()
@@ -168,7 +197,10 @@ pub(crate) fn terminate(args: &[String]) -> Result<i32, String> {
         Ok(status.code().unwrap_or(1))
     }
     #[cfg(not(windows))]
-    { Err("wsl.exe requires Windows".into()) }
+    {
+        let _ = args;
+        Err("wsl.exe requires Windows".into())
+    }
 }
 fn parse_install(args: &[String]) -> Result<(&str, wsx_core::release::Channel, bool, bool), String> {
     use wsx_core::release::Channel;
@@ -257,14 +289,78 @@ mod tests {
 }
 
 fn help() {
-    println!("Stop a WSL distribution: wsld.exe --terminate DISTRO_NAME or wsld.exe -t DISTRO_NAME\nCheck Windows, WSL and graphics prerequisites without downloading: wsld.exe --check-environment");
-    println!("Desktop launch: wsld.exe -d [DISTRO_NAME] or wsld.exe --distribution [DISTRO_NAME]. Omit the name to use the WSL default distribution. First launch prompts for a Linux account in the local terminal and uses the verified runtime cache.\nDesktop: wsld.exe -d DISTRO_NAME desktop status|stop|fit\nDisplay fit matches a common Guest mode to the current monitor work area and DPI; startup applies it automatically.\nCandidate runtime: wsld.exe -d DISTRO_NAME desktop start|restart-check --reference-runtime DIRECTORY [--reload-retired-owner (start only)]\nDISTRO_NAME is the WSL distro name in the NAME column shown by wsl.exe -l -v (for example, Omarchy). Do not include the default marker (*), state, version, internal GUID or candidate ID. Quote names containing spaces.\nStatus observes WSL, Guest and Native Host; it does not read the instance index or active pointer. Candidate ID desktop commands below are legacy diagnostics.");
-    println!("Online stable releases: wsld.exe -l -o or wsld.exe --list --online");
-    println!("Install: --install ID selects the newest eligible stable version; --install ID-VERSION requires that exact stable release. --install --pre-release ID-VERSION requires that exact published pre-release. Verified rootfs cache is shared under %LOCALAPPDATA%\\WSX\\cache\\releases. After import, first launch initializes the account interactively and attempts desktop startup. Add --no-launch to import only, or --check to inspect metadata only. Interrupted first launch resumes with -d DISTRO_NAME; do not reinstall.");
-    println!("Retired lifetime: candidate desktop-restart-check INSTANCE_ID --reference-runtime DIRECTORY; desktop-start accepts --reload-retired-owner only for a verified retired exact-reference Owner. Other modules are reused.");
-    println!("Graphics diagnosis: graphics diagnose-adapter PATHS.json DEVICES.json reports the display/Vulkan identity match; it does not prove rendering capabilities.");
-    println!("Graphics observations: graphics diagnose-capabilities PATHS.json DEVICES.json PROBE.json reports physical-device prerequisites; it does not admit a runtime.");
-    println!("Graphics GPU evidence: graphics diagnose-gpu-copy AUTO.jsonl STAGING.jsonl checks synthetic worker logs without admitting a runtime.");
-    println!("Candidate desktop: candidate desktop-start INSTANCE_ID --reference-runtime DIRECTORY | candidate desktop-status|desktop-stop INSTANCE_ID\nUses the pinned experimental reference closure; failed lifetimes are retained. No automatic module unload or retry.");
-    println!("Usage: wsld.exe candidate show|fetch TAG [--token-stdin] | candidate unpack|import-test TAG --max-tar-bytes N | list | status | catalog | --install ID[-VERSION] | --install --pre-release ID-VERSION | resolve ID INDEX.json | verify-release DIRECTORY | start ID | stop ID | diagnostic-task STEPS | --version\nwsld and wsx are equivalent. Candidate import-test creates an independent experimental WSL instance; compatibility remains unverified. Diagnostic tasks never install an image.");
+    println!("{}", r#"Usage: wsld.exe [Argument] [Options]
+
+Arguments for managing distributions:
+
+    --list, -l [Options]
+        List locally registered WSL distributions.
+
+        Options:
+            --verbose, -v
+                Show the name, state and WSL version of each distribution.
+
+            --online, -o
+                List stable WSX distributions available for installation.
+
+    --install [Options] ID[-VERSION]
+        Install the newest eligible stable image for ID, or use an exact
+        version if specified. First launch prompts for a Linux account.
+
+        Options:
+            --pre-release
+                Install an exact published pre-release. Requires ID-VERSION.
+
+            --check
+                Check release metadata without installing.
+
+            --no-launch
+                Import the distribution without starting its desktop.
+
+    --terminate, -t DISTRO_NAME
+        Terminate a WSL distribution.
+
+Arguments for running a desktop:
+
+    --distribution, -d [DISTRO_NAME]
+        Start the desktop or restore its window. Omit the name to use the
+        default WSL distribution. Quote names that contain spaces.
+
+    --distribution, -d DISTRO_NAME desktop COMMAND
+        status          Show the current WSL, Guest and Native Host status.
+        stop            Stop the desktop.
+        fit             Fit the Guest display to the monitor work area.
+        start           Start the desktop using the verified runtime cache.
+        restart-check   Check a previous lifetime using --reference-runtime.
+
+        With start, use --reference-runtime DIRECTORY to select a reference
+        runtime. --reload-retired-owner requires a verified retired Owner.
+
+Other arguments:
+
+    --check-environment
+        Check Windows, WSL and graphics prerequisites without downloading.
+
+    --help, -h
+        Show this help.
+
+    --version
+        Show the WSX Core version.
+
+    list | status | catalog | timezone
+        Show WSX inventory, image catalog or the system time zone.
+
+Advanced diagnostics:
+
+    candidate show|fetch TAG [--token-stdin]
+    candidate unpack|import-test TAG --max-tar-bytes N
+    candidate desktop-start|desktop-retry|desktop-restart-check INSTANCE_ID --reference-runtime DIRECTORY
+    candidate desktop-status|desktop-stop INSTANCE_ID
+    graphics verify-reference DIRECTORY KERNEL_VERSION
+    graphics select-adapter|diagnose-adapter PATHS.json DEVICES.json
+    graphics diagnose-capabilities PATHS.json DEVICES.json PROBE.json
+    graphics diagnose-gpu-copy AUTO.jsonl STAGING.jsonl
+    resolve ID INDEX.json
+    verify-release DIRECTORY
+    diagnostic-task STEPS"#);
 }
