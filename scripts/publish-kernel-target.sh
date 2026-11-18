@@ -124,7 +124,7 @@ manifest['source_review'] = {'asset': report_path.name, 'sha256': hashlib.sha256
 manifest_path.write_text(json.dumps(manifest, sort_keys=True, indent=2) + '\n')
 PYCODE
 rm -f "$RUNNER_TEMP/wsx-release-assets/SHA256SUMS"
-(cd "$RUNNER_TEMP/wsx-release-assets" && find . -maxdepth 1 -type f -print0 | sort -z | xargs -0 sha256sum > "SHA256SUMS-$TARGET_VERSION-$run_id")
+(cd "$RUNNER_TEMP/wsx-release-assets" && find . -maxdepth 1 -type f ! -name "SHA256SUMS-$TARGET_VERSION-$run_id" -print0 | sort -z | xargs -0 sha256sum > "SHA256SUMS-$TARGET_VERSION-$run_id")
 : "${WSX_KERNEL_ARTIFACT_ROOT:?}"
 mkdir -p "$WSX_KERNEL_ARTIFACT_ROOT"
 mv "$RUNNER_TEMP/wsx-release-assets" "$WSX_KERNEL_ARTIFACT_ROOT/$TARGET_VERSION"
