@@ -42,6 +42,12 @@ convert arbitrary existing WSL installations into WSX desktops. See
 
 - **Windows:** 64-bit Windows on an x86-64 PC, with hardware virtualization
   enabled and WSL 2 available. The installer checks for WSL **3.0.3 or later**.
+- **Administrator access (Community Edition):** Use an elevated Command
+  Prompt or PowerShell for installation and desktop commands. WSX needs Windows
+  Host Compute Service (HCS) permissions to attach and remove the virtual PCI
+  device used by the desktop. Elevate the same Windows account that owns the
+  WSL distribution. Starting the desktop manager (`wsxdesk.exe`) from Explorer
+  requests elevation through UAC.
 - **Graphics:** a Windows GPU and driver with the Vulkan capabilities required by
   the selected WSX graphics path, plus a compatible WSL kernel, WSX modules and
   matching Host/Guest components. The active display adapter is checked at
@@ -55,8 +61,8 @@ convert arbitrary existing WSL installations into WSX desktops. See
   the release metadata and image. Space requirements vary by image.
 
 Install or update WSL using Microsoft's instructions, then restart Windows if
-its setup asks you to. From a PowerShell window in the extracted WSX directory,
-run:
+its setup asks you to. Open PowerShell with **Run as administrator**, change
+to the extracted WSX directory, and run:
 
 ```powershell
 wsl.exe --version
@@ -93,7 +99,12 @@ systems and untested Windows/WSL versions need independent validation. See
    Windows ZIP to a local fixed drive. Keep the files and directories together;
    the executables alone do not contain the complete paired runtime. The
    materials ZIP contains component notices and source evidence.
-3. Open PowerShell in the extracted directory and check the environment:
+3. Open Command Prompt or PowerShell with **Run as administrator** using the
+   Windows account that owns the WSL distribution, then go to the extracted
+   directory and check the environment. Run installation and desktop commands
+   from that terminal. Listing distributions, help and version work in a
+   standard terminal. When opening `wsxdesk.exe` from Explorer, approve the UAC
+   prompt with the account that owns the distribution.
 
    ```powershell
    Get-FileHash .\wsx-community-windows-x64.zip -Algorithm SHA256

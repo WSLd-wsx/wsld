@@ -45,6 +45,9 @@ pub fn execute(args: &[String]) -> Result<(), String> {
         }
         return Ok(());
     }
+    if let Some(verbose) = local_list_mode(args) {
+        return list_local(verbose);
+    }
     match args {
         [s] if s == "--check-environment" => println!("{}", wsx_core::install::check_environment()?),
         [] => help(),
@@ -108,11 +111,7 @@ pub fn execute(args: &[String]) -> Result<(), String> {
             }
         }
         [s] if s == "list" || s == "status" => println!("{}", wsx_core::inventory()?),
-        [flag] if is_list(flag) => return list_local(false),
-        [a, b] if (is_list(a) && is_verbose(b)) || (is_verbose(a) && is_list(b)) => {
-            return list_local(true);
-        }
-        [a, b] if is_list(a) && (b == "-o" || b == "--online") || (a == "-o" || a == "--online") && is_list(b) => {
+        _ if is_online_list(args) => {
             let result = wsx_core::release::online()?;
             println!("{:<28} {:<20} INSTALL COMMAND", "DISTRIBUTION", "VERSION");
             for row in result["releases"].as_array().ok_or("Invalid release catalog")? {
@@ -169,6 +168,25 @@ fn is_list(arg: &str) -> bool {
 
 fn is_verbose(arg: &str) -> bool {
     matches!(arg, "-v" | "--verbose" | "-verbose")
+}
+
+fn local_list_mode(args: &[String]) -> Option<bool> {
+    match args {
+        [flag] if is_list(flag) => Some(false),
+        [a, b] if (is_list(a) && is_verbose(b)) || (is_verbose(a) && is_list(b)) => {
+            Some(true)
+        }
+        _ => None,
+    }
+}
+
+fn is_online_list(args: &[String]) -> bool {
+    let is_online = |arg: &str| matches!(arg, "-o" | "--online");
+    matches!(args, [a, b] if (is_list(a) && is_online(b)) || (is_online(a) && is_list(b)))
+}
+
+pub fn is_list_command(args: &[String]) -> bool {
+    local_list_mode(args).is_some() || is_online_list(args)
 }
 
 fn list_local(verbose: bool) -> Result<(), String> {

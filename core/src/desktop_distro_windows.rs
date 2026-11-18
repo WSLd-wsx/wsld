@@ -83,13 +83,16 @@ fn observe_windows(dir: &Path, request: Value) -> Result<Value, String> {
 
 pub(super) fn verify_concurrent_peers(root: &Path, dir: &Path, current: &Value) -> Result<crate::graphics::MachineGraphicsPaths, String> {
     let observed = observe_windows(dir, json!({"action":"discover","distribution":current["distribution"]["name"]}))?;
+    let processes = observed["native_processes"].as_array().ok_or("Missing peer Host inventory")?;
+    if processes.is_empty() {
+        return Ok(crate::graphics::MachineGraphicsPaths::Empty);
+    }
     if !observed["vm_query_error"].is_null() {
         return Err("Cannot verify the current WSL VM for concurrent desktops".into());
     }
     let vms = observed["wsl_vms"].as_array().ok_or("Missing current VM inventory")?;
     let running = crate::platform::registrations(true)?;
     let registrations = crate::platform::registration::list()?;
-    let processes = observed["native_processes"].as_array().ok_or("Missing peer Host inventory")?;
     let mut machine_paths = crate::graphics::MachineGraphicsPaths::Empty;
     for process in processes {
         if process["identity_valid"] != true {return Err("Cannot verify peer Native identity".into());}
