@@ -11,16 +11,18 @@ if($Action -eq 'Inspect'){
     if($owners.Count -and !$AllowConcurrent){throw 'Existing graphics Host processes require owner diagnosis; none were stopped'}
     $entries=@(Get-ChildItem 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Lxss' | ForEach-Object {Get-ItemProperty $_.PSPath} | Where-Object {$_.DistributionName -eq $Registration})
     if($entries.Count -ne 1 -or $entries[0].Version -ne 2){throw 'Expected one WSL 2 registration'}
-    $listing=(& "$env:SystemRoot\System32\hcsdiag.exe" list | Out-String)
-    if($LASTEXITCODE -ne 0){throw 'HCS discovery failed'}
-    $identityMatches=[regex]::Matches($listing,'(?im)^\s*([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\s*\r?\n\s*VM,.*\bWSL\b')
-    if($identityMatches.Count -ne 1){throw 'Expected exactly one running WSL VM'}
+    $vmOutput=@(& "$env:SystemRoot\System32\wsl.exe" --distribution $entries[0].DistributionName --exec wslinfo --vm-id)
+    if($LASTEXITCODE -ne 0){throw "WSL VM identity query failed (wslinfo exit code: $LASTEXITCODE)"}
+    $vmId=[guid]::Empty
+    if($vmOutput.Count -ne 1 -or ![guid]::TryParseExact($vmOutput[0].Trim(),'D',[ref]$vmId) -or $vmId -eq [guid]::Empty){
+        throw 'WSL VM identity query did not return a valid VM GUID'
+    }
     if (!$IdentityExecutable) { throw 'Graphics identity executable is unavailable' }
     $paths=& $IdentityExecutable --internal-graphics-identity display
     if($LASTEXITCODE -ne 0){throw 'Display inventory failed'}
     $devices=& $IdentityExecutable --internal-graphics-identity vulkan
     if($LASTEXITCODE -ne 0){throw 'Vulkan inventory failed; inspect the Vulkan loader and graphics driver. Staging Copy is not yet admitted.'}
-    @{vm=$identityMatches[0].Groups[1].Value;instance=[guid]::NewGuid().ToString('B');
+    @{vm=$vmId.ToString('D');instance=[guid]::NewGuid().ToString('B');
       disk=$entries[0].BasePath;paths_json=($paths -join "`n");
       devices_json=($devices -join "`n");
       registration=@{name=$entries[0].DistributionName;id=([guid]$entries[0].PSChildName).ToString('D');disk=$entries[0].BasePath;version=$entries[0].Version};
