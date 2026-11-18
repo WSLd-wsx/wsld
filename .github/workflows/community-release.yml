@@ -1,0 +1,226 @@
+name: Build WSX Community package
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: Publish a pre-release (leave unchecked to create a draft)
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: wsx-community-package
+  cancel-in-progress: false
+jobs:
+  build:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: windows-2022
+    timeout-minutes: 120
+    steps:
+      - name: Configure community build cache directory
+        shell: pwsh
+        run: |
+          "WSX_BUILD_CACHE=$(Join-Path $env:RUNNER_TEMP 'wsx-product-msvc')" >> $env:GITHUB_ENV
+      - name: Resolve latest WSLD main commit
+        id: source
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $commit = gh api repos/WSLd-wsx/wsld/commits/main --jq .sha
+          if ($LASTEXITCODE -ne 0 -or $commit -cnotmatch '^[0-9a-f]{40}$') { throw 'Cannot resolve WSLD main commit' }
+          "sha=$commit" >> $env:GITHUB_OUTPUT
+          "WSLD source commit: $commit" >> $env:GITHUB_STEP_SUMMARY
+      - name: Checkout pinned public Core source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: WSLd-wsx/wsld
+          ref: ${{ steps.source.outputs.sha }}
+          token: ${{ github.token }}
+          path: wsld
+          persist-credentials: false
+      - name: Verify source and prepare Rust
+        shell: pwsh
+        env:
+          SOURCE_COMMIT: ${{ steps.source.outputs.sha }}
+        run: |
+          if ((git -C wsld rev-parse HEAD).Trim() -cne $env:SOURCE_COMMIT) { throw 'Source commit differs' }
+          foreach ($path in @('community/Cargo.toml','gui/Cargo.toml','scripts/build-community-slice.ps1','scripts/package-community-slice.ps1')) {
+            if (-not (Test-Path "wsld/$path" -PathType Leaf)) { throw "Pinned source does not contain the community product build: $path" }
+          }
+          rustup toolchain install 1.95.0 --profile minimal --no-self-update
+          if ($LASTEXITCODE -ne 0) { throw 'Rust toolchain installation failed' }
+          rustup default 1.95.0
+          if ($LASTEXITCODE -ne 0) { throw 'Rust toolchain selection failed' }
+      - name: Download and verify private runtime inputs
+        id: runtime
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.WSXD_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $previous = $ErrorActionPreference
+          $ErrorActionPreference = 'Continue'
+          try {
+            $repository = gh api repos/WSXdesk/wsx-host --jq .full_name 2>$null
+            $repositoryStatus = $LASTEXITCODE
+            $release = gh release view --repo WSXdesk/wsx-host --json isDraft,isPrerelease,tagName,assets 2>$null
+            $releaseStatus = $LASTEXITCODE
+          } finally { $ErrorActionPreference = $previous }
+          if ($repositoryStatus -ne 0 -or $repository -cne 'WSXdesk/wsx-host') {
+            throw 'WSXD_TOKEN cannot read the private WSXdesk/wsx-host repository; check repository access and Contents permission.'
+          }
+          if ($releaseStatus -ne 0) {
+            throw 'WSXD_TOKEN can read wsx-host but cannot access its latest release.'
+          }
+          $metadata = $release | ConvertFrom-Json
+          if ($metadata.isDraft -or $metadata.isPrerelease -or $metadata.tagName -cnotmatch '^host-[A-Za-z0-9._-]+$') { throw 'Latest Host release is not a valid stable runtime release' }
+          $assets = @($metadata.assets | Where-Object { $_.name -ceq 'wsx-runtime.zip' })
+          if ($assets.Count -ne 1 -or $assets[0].digest -cnotmatch '^sha256:([0-9a-f]{64})$') { throw 'Latest Host release lacks a uniquely identified runtime ZIP and SHA-256' }
+          $runtimeTag = $metadata.tagName
+          $runtimeAsset = $assets[0].name
+          $runtimeSha = $Matches[1]
+          "tag=$runtimeTag" >> $env:GITHUB_OUTPUT
+          "asset=$runtimeAsset" >> $env:GITHUB_OUTPUT
+          "sha256=$runtimeSha" >> $env:GITHUB_OUTPUT
+          "Host runtime: $runtimeTag / $runtimeAsset / SHA-256 $runtimeSha" >> $env:GITHUB_STEP_SUMMARY
+          New-Item -ItemType Directory -Path "$env:RUNNER_TEMP/wsx-runtime-download" | Out-Null
+          gh release download $runtimeTag --repo WSXdesk/wsx-host --pattern $runtimeAsset --dir "$env:RUNNER_TEMP/wsx-runtime-download"
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot download private runtime asset' }
+          $zip = Join-Path "$env:RUNNER_TEMP/wsx-runtime-download" $runtimeAsset
+          if (-not (Test-Path -LiteralPath $zip -PathType Leaf)) { throw 'Runtime asset missing' }
+          if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant() -cne $runtimeSha) { throw 'Runtime asset SHA-256 mismatch' }
+          python wsld/scripts/extract-community-runtime.py $zip "$env:RUNNER_TEMP/wsx-runtime"
+          if ($LASTEXITCODE -ne 0) { throw 'Runtime archive rejected' }
+          Move-Item -LiteralPath "$env:RUNNER_TEMP/wsx-runtime" -Destination "$env:RUNNER_TEMP/wsx-product-runtime"
+      - name: Collect versioned kernel modules
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $download = "$env:RUNNER_TEMP/wsx-kernel-assets"
+          New-Item -ItemType Directory -Path $download | Out-Null
+          $kernelTag = python wsld/scripts/select-kernel-release.py
+          if ($LASTEXITCODE -ne 0 -or $kernelTag -cnotmatch '^wsx-kernel-(rebuild-)?[0-9]+-[0-9]+$') { throw 'Cannot select kernel release' }
+          gh release download $kernelTag --repo WSLd-wsx/wsld --pattern 'modules_*.tar.gz' --pattern 'modules_*.json' --pattern 'source-materials-*.json' --pattern 'source-review-*.json' --pattern 'module-sources-*.tar.gz' --pattern 'kernel-config-*.txt' --pattern 'kernel-source-*.tar.gz' --pattern 'build-inputs-*.tar.gz' --pattern 'evidence-*.tar.gz' --pattern 'build-evidence-*.tar.gz' --dir $download
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot download kernel module release assets' }
+          "Kernel module release: $kernelTag" >> $env:GITHUB_STEP_SUMMARY
+          python wsld/scripts/stage-kernel-assets.py $download "$env:RUNNER_TEMP/wsx-product-runtime/runtime/kernel-modules"
+          if ($LASTEXITCODE -ne 0) { throw 'Kernel module assets failed staging verification' }
+          python wsld/scripts/collect-community-kernel-evidence.py "$env:RUNNER_TEMP/wsx-product-runtime/runtime/kernel-modules/index.json" $download "$env:RUNNER_TEMP/wsx-kernel-source-evidence.zip"
+          if ($LASTEXITCODE -ne 0) { throw 'Kernel source evidence verification failed' }
+      - name: Restore Cargo registry cache
+        id: registry-cache
+        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: |
+            ${{ env.WSX_BUILD_CACHE }}\cargo\registry\index
+            ${{ env.WSX_BUILD_CACHE }}\cargo\registry\cache
+            ${{ env.WSX_BUILD_CACHE }}\cargo\registry\src
+          key: community-registry-v1-${{ runner.os }}-${{ runner.arch }}-rust195-${{ hashFiles('wsld/community/Cargo.lock') }}
+          restore-keys: |
+            community-registry-v1-${{ runner.os }}-${{ runner.arch }}-rust195-
+      - name: Build and package community edition
+        shell: pwsh
+        env:
+          SOURCE_COMMIT: ${{ steps.source.outputs.sha }}
+          RUNTIME_TAG: ${{ steps.runtime.outputs.tag }}
+          RUNTIME_ASSET: ${{ steps.runtime.outputs.asset }}
+          RUNTIME_SHA256: ${{ steps.runtime.outputs.sha256 }}
+        run: |
+          $root = "$env:RUNNER_TEMP/wsx-product-runtime"
+          $evidence = "$env:RUNNER_TEMP/wsx-community-build"
+          $package = "$env:RUNNER_TEMP/wsx-community-package"
+          & ./wsld/scripts/build-community-slice.ps1 -Evidence $evidence -RuntimePackage "$root/runtime" -RuntimeCatalog "$root/runtime-catalog.json" -GuestAdapterCatalog "$root/guest-adapter-catalog.json"
+          & ./wsld/scripts/package-community-slice.ps1 -ExecutablePackage "$evidence/package" -RuntimePackage "$root/runtime" -GuiNotices "$evidence/gui-notices" -Output $package
+          Copy-Item "$package/wsx-community-slice.zip" "$package/wsx-community-windows-x64.zip"
+          $hash = (Get-FileHash "$package/wsx-community-windows-x64.zip" -Algorithm SHA256).Hash.ToLowerInvariant()
+          Copy-Item "$env:RUNNER_TEMP/wsx-kernel-source-evidence.zip" "$package/kernel-source-evidence.zip"
+          python wsld/scripts/assemble-community-materials.py --package "$package/wsx-community-windows-x64.zip" --runtime "$env:RUNNER_TEMP/wsx-runtime-download/$env:RUNTIME_ASSET" --kernel-evidence "$package/kernel-source-evidence.zip" --source wsld --output "$package/wsx-community-materials.zip"
+          if ($LASTEXITCODE -ne 0) { throw 'Community component material verification failed' }
+          python wsld/scripts/community-mpl-sources.py verify --lock wsld/community/Cargo.lock --tree "$evidence/mpl-dependency-tree.txt" --package "$package/wsx-community-windows-x64.zip" --materials "$package/wsx-community-materials.zip"
+          if ($LASTEXITCODE -ne 0) { throw 'MPL dependency source verification failed' }
+          $materialsHash = (Get-FileHash "$package/wsx-community-materials.zip" -Algorithm SHA256).Hash.ToLowerInvariant()
+          [IO.File]::WriteAllText("$package/SHA256SUMS", "$hash  wsx-community-windows-x64.zip`n$materialsHash  wsx-community-materials.zip`n")
+          python wsld/scripts/audit-community-package.py "$package/wsx-community-windows-x64.zip" "$package/community-audit.json" --kernel-evidence "$package/kernel-source-evidence.zip"
+          if ($LASTEXITCODE -ne 0) { throw 'Community package evidence audit failed' }
+          "Source commit: $env:SOURCE_COMMIT`nRuntime: WSXdesk/wsx-host release $env:RUNTIME_TAG asset $env:RUNTIME_ASSET`nRuntime SHA-256: $env:RUNTIME_SHA256`nZIP SHA-256: $hash" | Set-Content "$package/build-provenance.txt"
+      - name: Save Cargo registry cache
+        if: ${{ steps.registry-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: |
+            ${{ env.WSX_BUILD_CACHE }}\cargo\registry\index
+            ${{ env.WSX_BUILD_CACHE }}\cargo\registry\cache
+            ${{ env.WSX_BUILD_CACHE }}\cargo\registry\src
+          key: community-registry-v1-${{ runner.os }}-${{ runner.arch }}-rust195-${{ hashFiles('wsld/community/Cargo.lock') }}
+      - name: Save test release for review
+        if: ${{ inputs.release }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: ${{ steps.source.outputs.sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $info = gh api repos/WSLd-wsx/wsld | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $info.full_name -cne 'WSLd-wsx/wsld') { throw 'Source repository identity check failed' }
+          $tag = "community-test-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          $p = "$env:RUNNER_TEMP/wsx-community-package"
+          gh release create $tag "$p/wsx-community-windows-x64.zip" "$p/wsx-community-materials.zip" "$p/SHA256SUMS" "$p/build-provenance.txt" "$p/community-audit.json" --repo WSLd-wsx/wsld --target $env:SOURCE_COMMIT --prerelease --latest=false --title "WSX Community Edition $env:GITHUB_RUN_ID" --notes 'Test candidate. License review and Windows desktop acceptance remain required.'
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot create the test release; inspect the repository before retrying' }
+          $release = gh release view $tag --repo WSLd-wsx/wsld --json isPrerelease,isDraft,tagName | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or -not $release.isPrerelease -or $release.isDraft -or $release.tagName -cne $tag) { throw 'Cannot confirm the test release' }
+          $readback = "$env:RUNNER_TEMP/wsx-community-readback"
+          New-Item -ItemType Directory -Path $readback | Out-Null
+          foreach ($file in @('wsx-community-windows-x64.zip','wsx-community-materials.zip','SHA256SUMS','build-provenance.txt','community-audit.json')) {
+            gh release download $tag --repo WSLd-wsx/wsld --pattern $file --dir $readback
+            if ($LASTEXITCODE -ne 0) { throw "Cannot read back test asset: $file" }
+            if ((Get-FileHash -LiteralPath "$p/$file" -Algorithm SHA256).Hash -cne (Get-FileHash -LiteralPath "$readback/$file" -Algorithm SHA256).Hash) { throw "Test asset mismatch: $file" }
+          }
+          "Test release: https://github.com/WSLd-wsx/wsld/releases/tag/$tag" >> $env:GITHUB_STEP_SUMMARY
+      - name: Create draft release for review
+        if: ${{ !inputs.release }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HOST_TOKEN: ${{ secrets.WSXD_TOKEN }}
+          SOURCE_COMMIT: ${{ steps.source.outputs.sha }}
+        run: |
+          $env:RELEASE_TAG = "community-draft-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          $info = gh api repos/WSLd-wsx/wsld | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $info.full_name -cne 'WSLd-wsx/wsld') { throw 'Source repository identity check failed' }
+          $previousToken = $env:GH_TOKEN
+          try {
+            $env:GH_TOKEN = $env:HOST_TOKEN
+            $hostInfo = gh api repos/WSXdesk/wsx-host | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0 -or $hostInfo.full_name -cne 'WSXdesk/wsx-host' -or -not $hostInfo.private) { throw 'Runtime repository identity or visibility check failed' }
+          } finally { $env:GH_TOKEN = $previousToken }
+          function Require-NotFound([string]$Path) {
+            $previous = $ErrorActionPreference
+            $ErrorActionPreference = 'Continue'
+            try { $response = (gh api --include $Path 2>&1 | Out-String); $code = $LASTEXITCODE }
+            finally { $ErrorActionPreference = $previous }
+            if ($code -eq 0) { throw 'Release or tag already exists; refusing to replace it' }
+            if ($response -notmatch '(?m)^HTTP/[^ ]+ 404(?:\s|$)') { throw 'Cannot verify that the release or tag is absent' }
+          }
+          Require-NotFound "repos/WSLd-wsx/wsld/git/ref/tags/$env:RELEASE_TAG"
+          Require-NotFound "repos/WSLd-wsx/wsld/releases/tags/$env:RELEASE_TAG"
+          gh api --method POST repos/WSLd-wsx/wsld/git/refs -f "ref=refs/tags/$env:RELEASE_TAG" -f "sha=$env:SOURCE_COMMIT"
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot create the new tag; inspect the target repository before retrying' }
+          $p = "$env:RUNNER_TEMP/wsx-community-package"
+          gh release create $env:RELEASE_TAG "$p/wsx-community-windows-x64.zip" "$p/wsx-community-materials.zip" "$p/SHA256SUMS" "$p/build-provenance.txt" "$p/community-audit.json" --repo WSLd-wsx/wsld --verify-tag --draft --title "WSX Community Edition $env:GITHUB_RUN_ID" --notes 'Draft candidate. License, component distribution, Windows acceptance and release readiness require review.'
+          if ($LASTEXITCODE -ne 0) { throw 'Draft creation failed; the new tag is retained for inspection' }
+          $draft = gh release view $env:RELEASE_TAG --repo WSLd-wsx/wsld --json isDraft | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or -not $draft.isDraft) { throw 'Cannot confirm that the new Release is a draft' }
+          $readback = "$env:RUNNER_TEMP/wsx-community-readback"
+          New-Item -ItemType Directory -Path $readback | Out-Null
+          foreach ($file in @('wsx-community-windows-x64.zip','wsx-community-materials.zip','SHA256SUMS','build-provenance.txt','community-audit.json')) {
+            gh release download $env:RELEASE_TAG --repo WSLd-wsx/wsld --pattern $file --dir $readback
+            if ($LASTEXITCODE -ne 0) { throw "Cannot read back draft asset: $file" }
+            if ((Get-FileHash -LiteralPath "$p/$file" -Algorithm SHA256).Hash -cne (Get-FileHash -LiteralPath "$readback/$file" -Algorithm SHA256).Hash) { throw "Draft asset mismatch: $file" }
+          }
+      - name: Report scope
+        shell: pwsh
+        run: |
+          'This build is a review candidate. It does not establish license approval, desktop acceptance, signing, or release readiness.' >> $env:GITHUB_STEP_SUMMARY
