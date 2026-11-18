@@ -1233,6 +1233,16 @@ fn start_inner(
     loop {
         let text = log_tail(log);
         if text.contains("WSX_NATIVE: entry failed") {
+            if text.lines().any(|line| {
+                line.trim().eq_ignore_ascii_case(
+                    "WSX_CONSTRUCT: COM/native device construct HRESULT=0x8037011b",
+                )
+            }) {
+                return Err(format!(
+                    "Windows HCS denied Native Host access to the WSL VM (0x8037011B). Use an elevated terminal or a Windows account authorized to manage Hyper-V. Inspect {}",
+                    log.display()
+                ));
+            }
             return Err(format!("Native Host failed; inspect {}", log.display()));
         }
         if text.contains("WSX_PCI_RUNTIME: HDV Start HRESULT=0x00000000 phase=3") {
