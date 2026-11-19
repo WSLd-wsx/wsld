@@ -385,7 +385,7 @@ pub(crate) fn execute_bound(distro: &str, command: DesktopCommand, expected_guid
         let item = owned_registration(&store.read()?, field(&current["distribution"], "name")?, field(&current["distribution"], "disk")?)?;
         drop(store);
         let plan = import_compatibility(&item, &registration_id)?;
-        let runtime = crate::compatibility::runtime_path(&root, &plan)?;
+        let runtime = crate::compatibility::inspect_runtime_path(&root, &plan)?;
         crate::compatibility::verify_runtime(&runtime, &plan)?;
         let guest = if current["distribution"]["running"] == true {
             let request = json!({"action":"compatibility","distribution":item.distribution,"compatibility":plan});
@@ -502,7 +502,9 @@ pub(crate) fn execute_bound(distro: &str, command: DesktopCommand, expected_guid
         // An explicit runtime preference retains precedence. Each candidate is
         // pinned to the release contract and checked without creating a device.
         // Startup repeats all admission checks under its machine gate.
-        if !root.join("config").join("graphics-runtime.json").try_exists().map_err(|e| e.to_string())? {
+        if selected.join("verified-files.json").try_exists().map_err(|e| e.to_string())?
+            && !root.join("config").join("graphics-runtime.json").try_exists().map_err(|e| e.to_string())?
+        {
             ensure_initialized(&item.registration, &dir, plan["source"] == "release-declaration", if plan["contract"]["guest_bootstrap_major"] == 2 { Some((&item.distribution, &registration_id)) } else { None })?;
             for receipt in crate::compatibility::automatic_host_updates(&plan) {
                 let Some(candidate) = crate::compatibility::ensure_packaged_update(&root, &plan, &receipt)? else { continue; };
@@ -522,7 +524,10 @@ pub(crate) fn execute_bound(distro: &str, command: DesktopCommand, expected_guid
     if current["other_native_host_count"].as_u64().unwrap_or(0) != 0 {
         let runtime=match &command {
             DesktopCommand::Start{runtime,..} => runtime.clone(),
-            _ => packaged_runtime.clone().unwrap_or(crate::compatibility::runtime_path(&root,&plan)?),
+            _ => match &packaged_runtime {
+                Some(runtime) => runtime.clone(),
+                None => crate::compatibility::runtime_path(&root, &plan)?,
+            },
         };
         crate::compatibility::verify_runtime(&runtime,&plan)?;
         if crate::graphics::verify_reference(&runtime,"6.18.54.1-microsoft-standard-WSL2")?["pci_owner_configuration_abi"] != 2 {

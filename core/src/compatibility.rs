@@ -189,7 +189,35 @@ pub fn automatic_host_updates(plan: &Value) -> Vec<String> {
     }).collect()
 }
 
+// The product catalog supplies the Host on this declared Guest contract.
+#[cfg(windows)]
+pub(crate) fn product_runtime(package: &std::path::Path) -> std::path::PathBuf {
+    package.join("graphics").join("product").join("zero-copy")
+}
+
+#[cfg(windows)]
+fn product_contract(plan: &Value) -> bool {
+    plan["source"] == "release-declaration"
+        && plan["contract"]["guest_bootstrap_major"] == 2
+        && plan["contract"]["runtime_receipt_sha256"] == crate::graphics::MULTI_TITLE_RECEIPT
+}
+
 pub fn verify_runtime(directory: &std::path::Path, plan: &Value) -> Result<(), String> {
+    #[cfg(windows)]
+    if product_contract(plan) {
+        let executable = std::env::current_exe().map_err(|e| e.to_string())?;
+        let package = executable.parent().ok_or("Missing executable directory")?;
+        if directory == product_runtime(package) {
+            crate::candidate::reject_reparse(directory)?;
+            let identity = crate::runtime_bundle::verify_packaged_identity(directory)?
+                .ok_or("Missing catalogued product runtime")?;
+            if identity["mode"] != "zero-copy"
+                || !identity["native_capabilities"].as_array().is_some_and(|caps| caps.iter().any(|cap| cap == "guest-bootstrap-v2")) {
+                return Err("Packaged product identity lacks the required Guest contract".into());
+            }
+            return crate::graphics::verify_start_runtime(directory);
+        }
+    }
     let path = directory.join("verified-files.json");
     #[cfg(windows)] crate::candidate::reject_reparse(&path)?;
     let size = std::fs::metadata(&path).map_err(|e| format!("Required graphics runtime is not installed: {e}"))?.len();
@@ -218,7 +246,35 @@ pub fn verify_runtime(directory: &std::path::Path, plan: &Value) -> Result<(), S
 pub fn ensure_packaged_runtime(root: &std::path::Path, plan: &Value) -> Result<std::path::PathBuf, String> {
     let executable = std::env::current_exe().map_err(|e| format!("Locate product executable: {e}"))?;
     let package = executable.parent().ok_or("Product executable has no parent directory")?;
+    if let Some(product) = packaged_product_at(root, plan, package)? {
+        return Ok(product);
+    }
     ensure_packaged_runtime_at(root, plan, package)
+}
+
+#[cfg(windows)]
+pub(crate) fn inspect_runtime_path(root: &std::path::Path, plan: &Value) -> Result<std::path::PathBuf, String> {
+    let executable = std::env::current_exe().map_err(|e| format!("Locate product executable: {e}"))?;
+    let package = executable.parent().ok_or("Product executable has no parent directory")?;
+    match packaged_product_at(root, plan, package)? {
+        Some(product) => Ok(product),
+        None => runtime_path(root, plan),
+    }
+}
+
+#[cfg(windows)]
+fn packaged_product_at(root: &std::path::Path, plan: &Value, package: &std::path::Path) -> Result<Option<std::path::PathBuf>, String> {
+    let product = product_runtime(package);
+    let preference = root.join("config").join("graphics-runtime.json");
+    crate::candidate::reject_reparse(&preference)?;
+    if product_contract(plan)
+        && !preference.try_exists().map_err(|e| e.to_string())?
+        && product.try_exists().map_err(|e| e.to_string())?
+    {
+        verify_runtime(&product, plan)?;
+        return Ok(Some(product));
+    }
+    Ok(None)
 }
 
 #[cfg(windows)]
