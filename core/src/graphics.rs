@@ -6,7 +6,7 @@
 pub const DRM_ACCESS_GUEST: &[u8] = include_bytes!("../guest/drm-access.py");
 pub const KERNEL_SYMBOL_AUDIT_GUEST: &[u8] = include_bytes!("../guest/kernel-symbol-audit.py");
 
-const MULTI_TITLE_RECEIPT: &str = "442f6032d8645c413b7398e2654c669169e79e9b46e79220134bb881b51d0561";
+pub(crate) const MULTI_TITLE_RECEIPT: &str = "442f6032d8645c413b7398e2654c669169e79e9b46e79220134bb881b51d0561";
 const UNUSED_REFERENCE_GUEST_ENTRY: &str = "guest/start-guest.py";
 
 /// This exact historical receipt is retained for release identity, but its

@@ -275,7 +275,13 @@ def prepare(root, profile, instance, previous=None, sharing_path='opaque-v1', mo
         raise RuntimeError('Expected one DRM card under the actual PCI owner')
     spec = dict(guest_interface_abi=1, instance_id=str(instance), drm_node=cards[0],
                 input_port=profile['port'] + 1, sharing_path=sharing_path)
-    run(guest_command, input=json.dumps(spec))
+    try:
+        run(guest_command, input=json.dumps(spec))
+    except subprocess.CalledProcessError as error:
+        detail = (error.stderr or error.stdout or '').strip()
+        if detail:
+            print(detail[-4096:], file=sys.stderr)
+        raise
     access = run(['/usr/bin/python3', '-I', str(root / 'drm-access.py'),
                   '--instance', str(instance)])
     return dict(prepared=True, instance=str(instance), device=device.name,

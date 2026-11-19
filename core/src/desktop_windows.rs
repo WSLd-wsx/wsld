@@ -304,6 +304,17 @@ fn identity_executable() -> Result<PathBuf, String> {
     Ok(executable)
 }
 
+fn require_dynamic_rendering(adapter: &Value) -> Result<(), String> {
+    let name = adapter["name"].as_str().unwrap_or("the active display adapter");
+    match adapter["dynamic_rendering"].as_bool() {
+        Some(true) => Ok(()),
+        Some(false) => Err(format!(
+            "Graphics adapter {name} does not support Vulkan dynamicRendering with the current driver. WSX desktop requires this feature for both zero-copy and staging-copy."
+        )),
+        None => Err(format!("Cannot verify Vulkan dynamicRendering support for {name}.")),
+    }
+}
+
 pub(crate) fn install_graphics_preflight() -> Result<(), String> {
     use std::os::windows::ffi::OsStrExt;
     #[link(name = "kernel32")]
@@ -338,6 +349,7 @@ pub(crate) fn install_graphics_preflight() -> Result<(), String> {
     let devices = read_inventory("vulkan")?;
     let selected = crate::graphics::select_active_adapter(&paths, &devices).map_err(|e|
         format!("Cannot determine the graphics adapter: {}. Update the graphics driver and check your display configuration.", crate::graphics_diagnostics::adapter_failure_reason(&paths, &devices, &e)))?;
+    require_dynamic_rendering(&selected["vulkan"])?;
     let bytes = include_bytes!(concat!(env!("OUT_DIR"), "/opaque-buffer-probe.exe"));
     let probe = dir.join("opaque-query.exe");
     write_new(&probe, bytes)?;
@@ -537,7 +549,13 @@ fn previous_retired_pointer(pointer:Value, states:&Path, item:&crate::store::Ins
     if profile["distribution"] != item.registration {
         return Err("Previous native distribution differs from ownership".into());
     }
-    let prepared = read_json(&dir.join("prepared.json"))?;
+    // An early failure can leave no Guest preparation record. Fresh VM
+    // admission does not reuse the old device or any of its preparation.
+    let prepared = if recovered {
+        Value::Null
+    } else {
+        read_json(&dir.join("prepared.json"))?
+    };
     Ok(
         json!({"directory":dir,"pointer":pointer,"native":native,"prepared":prepared,"profile":profile,
             "native_retirement_confirmed":!recovered,"recovered_after_windows_restart":reboot_recovered,
@@ -689,22 +707,25 @@ fn start_with_registration(
     let dir = states.join(format!("{id}-{nonce}"));
     fs::create_dir(&dir).map_err(|e| e.to_string())?;
     fs::create_dir(dir.join("guest")).map_err(|e| e.to_string())?;
-    let files = read_json(&runtime.join("verified-files.json"))?;
-    let reference_digest = crate::graphics::reference_receipt_digest(runtime)?;
-    for file in files.as_object().ok_or("Invalid reference receipt")?.keys() {
-        if crate::graphics::omitted_reference_file(&reference_digest, file) { continue; }
-        if product_root.is_some() && ["wsx-native-host.exe", "wsx-input-host.exe", "libvirglrenderer-1.dll", "libepoxy-0.dll"].contains(&file.as_str()) { continue; }
-        fs::copy(runtime.join(file), dir.join(file)).map_err(|e| e.to_string())?;
+    let catalogued_product = product_root.as_ref().is_some_and(|root| runtime == root.join("zero-copy"));
+    if !catalogued_product {
+        let files = read_json(&runtime.join("verified-files.json"))?;
+        let reference_digest = crate::graphics::reference_receipt_digest(runtime)?;
+        for file in files.as_object().ok_or("Invalid reference receipt")?.keys() {
+            if crate::graphics::omitted_reference_file(&reference_digest, file) { continue; }
+            if product_root.is_some() && ["wsx-native-host.exe", "wsx-input-host.exe", "libvirglrenderer-1.dll", "libepoxy-0.dll"].contains(&file.as_str()) { continue; }
+            fs::copy(runtime.join(file), dir.join(file)).map_err(|e| e.to_string())?;
+        }
+        fs::copy(runtime.join("verified-files.json"), dir.join("verified-files.json"))
+            .map_err(|e| e.to_string())?;
+        if product_root.is_none() { crate::graphics::verify_reference(&dir, "6.18.54.1-microsoft-standard-WSL2")?; }
     }
-    fs::copy(runtime.join("verified-files.json"), dir.join("verified-files.json"))
-        .map_err(|e| e.to_string())?;
-    if product_root.is_none() { crate::graphics::verify_reference(&dir, "6.18.54.1-microsoft-standard-WSL2")?; }
     // An independently pinned diagnostic group can be tested without changing
     // the verified Host/renderer receipt. Its Guest admission remains separate.
     let group_pin = "2cba196fcc056740a90186eeebfbd5354d21c8115994e2c69229d3df9a519a72";
     let group_source = root.join("cache").join("kernel-modules").join(group_pin);
     let mut module_manifest_sha256 = None;
-    if group_source.exists() && !cfg!(feature = "remote-kernel-acceptance") {
+    if !catalogued_product && group_source.exists() && !cfg!(feature = "remote-kernel-acceptance") {
         crate::candidate::reject_reparse(&group_source)?;
         let manifest = group_source.join("module-group.json");
         crate::candidate::reject_reparse(&manifest)?;
@@ -948,6 +969,7 @@ fn start_inner(
     if let Ok(bytes) = serde_json::to_vec_pretty(&crate::graphics_diagnostics::adapter_report(&paths, &devices)) {
         let _ = write_new(&dir.join("graphics-adapter-diagnostics.json"), &bytes);
     }
+    require_dynamic_rendering(&selected["vulkan"])?;
 
     let opaque_observation = {
         let report = observe_opaque_buffer(dir, &selected)?;
@@ -1006,6 +1028,13 @@ fn start_inner(
                     let attempt = archive.and_then(|(path, selected)| crate::kernel_group_archive::prepare_version_archive(
                         &path, &dir.join("module-group"), &selected.archive_sha256, selected.archive_bytes));
                     let attempt = attempt.and_then(|prepared| {
+                        let group = read_json(&dir.join("module-group").join("module-group.json"))?;
+                        let modules = group["files"].as_object().ok_or("Missing staged module entries")?;
+                        if compatibility["rejected_module_sha256"].as_array().is_some_and(|rejected|
+                            modules.values().any(|module| rejected.contains(&module["sha256"])))
+                        {
+                            return Err("Kernel module group contains a module rejected by the image".into());
+                        }
                         let screen = guest_control(reg, dir, json!({"action":"screen-module-group","kernel":kernel,"module_manifest_sha256":prepared.manifest_sha256}))?;
                         if screen["kernel"]["symbol_crc_compatibility_admitted"] != true { return Err("Kernel symbol CRC admission failed".into()); }
                         Ok(prepared)
