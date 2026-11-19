@@ -16,6 +16,10 @@ pub struct HostV2 {
 pub const VERSION: u32 = 2;
 pub const CAP_DIAGNOSTICS: u64 = 1;
 pub const CAP_INVENTORY: u64 = 2;
+pub const DISTRIBUTION_DESKTOP: u32 = 1;
+pub const DISTRIBUTION_TERMINAL: u32 = 2;
+pub const DISTRIBUTION_TERMINATE: u32 = 3;
+
 /// Optional launch extension negotiated separately from the unchanged HostV2.
 /// Inputs are bounded UTF-8 byte slices; errors are written once to caller memory.
 #[repr(C)]

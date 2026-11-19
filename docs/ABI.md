@@ -56,8 +56,10 @@ loop. `WsxLaunchV1` is 32 bytes on x64, version 1, with zero reserved fields.
 It contains one blocking callback; Pro executes it on a bounded worker and
 drains in-flight calls before shutdown. UTF-8 name and WSL registration GUID
 are length-delimited and contain no NUL. Mode 1 opens a verified WSX desktop;
-mode 2 opens an ordinary WSL terminal. Core rechecks registration and ownership
-at invocation. The caller supplies an error buffer of at least 1024 bytes;
+mode 2 opens an ordinary WSL terminal. Mode 3 retires a live, bound WSX
+desktop before terminating its WSL distribution. Older hosts reject mode 3
+with `-1`. Core rechecks registration at invocation and verifies ownership
+where required. The caller supplies an error buffer of at least 1024 bytes;
 the callback returns a single UTF-8 error (possibly truncated at a character
 boundary). It must never be retried merely to obtain a longer buffer because
 the requested operation may have side effects. An older host can use the v2

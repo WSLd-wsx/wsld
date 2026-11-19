@@ -22,6 +22,10 @@ typedef struct WsxHostV2 {
     /* On inventory error -11, a bounded UTF-8 explanation may be returned. */
     int32_t (WSX_CALL *inventory)(uint8_t *, uint32_t, uint32_t *);
 } WsxHostV2;
+#define WSX_DISTRIBUTION_DESKTOP 1u
+#define WSX_DISTRIBUTION_TERMINAL 2u
+/* Older hosts return -1 for this mode. */
+#define WSX_DISTRIBUTION_TERMINATE 3u
 /* Optional separately negotiated launch extension; caller owns all buffers. */
 typedef struct WsxLaunchV1 {
     uint32_t size, version;

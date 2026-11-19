@@ -62,6 +62,7 @@ fn query_directory(root: &Path) -> Result<PathBuf, String> {
 }
 
 fn observe_windows(dir: &Path, request: Value) -> Result<Value, String> {
+    let timeout = if request["wait_for_exit"] == true { 120 } else { 30 };
     let mut c = std::process::Command::new(system("WindowsPowerShell/v1.0/powershell.exe")?);
     c.args([
         "-NoProfile",
@@ -76,7 +77,7 @@ fn observe_windows(dir: &Path, request: Value) -> Result<Value, String> {
         dir,
         "distro-observation",
         Some(&serde_json::to_vec(&request).map_err(|e| e.to_string())?),
-        30,
+        timeout,
     )?)
     .map_err(|e| format!("Invalid distro observation: {e}"))
 }
@@ -262,7 +263,7 @@ fn guest_observation(distro: &str, instance: Option<&str>, running: bool, dir: &
     }
 }
 
-fn snapshot(root: &Path, dir: &Path, distro: &str, session_only: bool) -> Result<Value, String> {
+fn snapshot(root: &Path, dir: &Path, distro: &str, session_only: bool, observe_guest: bool) -> Result<Value, String> {
     let windows = observe_windows(dir, json!({"action":"discover","distribution":distro,"skip_vm_query":session_only}))?;
     let registration = &windows["registration"];
     let running = registration["running"]
@@ -285,20 +286,26 @@ fn snapshot(root: &Path, dir: &Path, distro: &str, session_only: bool) -> Result
     } else {
         None
     };
-    // Compatibility provenance is an import fact, not a running-state index.
-    let receipt_path = Path::new(field(registration, "disk")?).join("wsx-import.json");
-    let declared = if receipt_path.try_exists().map_err(|e|e.to_string())? {
-        read_json(&receipt_path)?["release_manifest"].get("desktop_compatibility").is_some()
-    } else { false };
-    let guest = guest_observation(
-        field(registration, "name")?,
-        selected.and_then(|n| n["instance"].as_str()),
-        running,
-        dir,
-        declared || selected.is_some_and(|n| n["guest_protocol"] == true),
-        session_only,
-        selected.and_then(|n| n["guest_protocol_major"].as_u64()).unwrap_or(1),
-    );
+    let guest = if observe_guest {
+        // Compatibility provenance is an import fact, not a running-state index.
+        let receipt_path = Path::new(field(registration, "disk")?).join("wsx-import.json");
+        let declared = if receipt_path.try_exists().map_err(|e| e.to_string())? {
+            read_json(&receipt_path)?["release_manifest"].get("desktop_compatibility").is_some()
+        } else {
+            false
+        };
+        guest_observation(
+            field(registration, "name")?,
+            selected.and_then(|n| n["instance"].as_str()),
+            running,
+            dir,
+            declared || selected.is_some_and(|n| n["guest_protocol"] == true),
+            session_only,
+            selected.and_then(|n| n["guest_protocol_major"].as_u64()).unwrap_or(1),
+        )
+    } else {
+        json!({"state":"not_queried"})
+    };
     let state = summary(
         native.len(),
         unresolved.len(),
@@ -314,11 +321,32 @@ fn snapshot(root: &Path, dir: &Path, distro: &str, session_only: bool) -> Result
     )
 }
 
+fn terminate_registration(name: &str, guid: &str, dir: &Path) -> Result<Value, String> {
+    let running = crate::platform::registrations(true)?;
+    let rows = crate::platform::registration::list()?;
+    if !rows.iter().any(|row| row.name.eq_ignore_ascii_case(name) && same_registration_guid(&row.guid, guid)) {
+        return Err("The WSL registration changed before termination; refresh the list".into());
+    }
+    if running.iter().any(|row| row.eq_ignore_ascii_case(name)) {
+        let mut command = std::process::Command::new(system("wsl.exe")?);
+        command.args(["--terminate", name]);
+        captured(command, dir, "wsl-terminate", None, 60)?;
+        if crate::platform::registrations(true)?.iter().any(|row| row.eq_ignore_ascii_case(name)) {
+            return Err(format!("The distribution is still running. Inspect {}", dir.display()));
+        }
+    }
+    Ok(json!({"distro_name":name,"diagnostics":dir}))
+}
+
 pub(crate) fn execute(distro: &str, command: DesktopCommand) -> Result<Value, String> {
+    execute_bound(distro, command, None)
+}
+
+pub(crate) fn execute_bound(distro: &str, command: DesktopCommand, expected_guid: Option<&str>) -> Result<Value, String> {
     let root = crate::store::data_root()?;
     let dir = query_directory(&root)?;
     if command == DesktopCommand::Status {
-        let mut result = snapshot(&root, &dir, distro, false);
+        let mut result = snapshot(&root, &dir, distro, false, true);
         if let Ok(snapshot) = &mut result {
             if crate::cleanup::mark_status_complete(&dir, snapshot) {
                 // Only a fully observed, stopped query is disposable. Leave all
@@ -343,8 +371,12 @@ pub(crate) fn execute(distro: &str, command: DesktopCommand) -> Result<Value, St
     let registrations = crate::platform::registration::list()?;
     let registration = registrations.iter().find(|item| item.name.eq_ignore_ascii_case(distro)).ok_or("WSL distribution no longer registered")?;
     let registration_id = registration.guid.trim_matches(['{', '}']).to_ascii_lowercase();
+    if expected_guid.is_some_and(|guid| !same_registration_guid(guid, &registration_id)) {
+        return Err("The WSL registration changed; refresh the list".into());
+    }
     let _lock = crate::platform::desktop_lock::Lock::acquire(&registration_id)?;
-    let current = snapshot(&root, &dir, distro, command == DesktopCommand::Launch)?;
+    let terminate = command == DesktopCommand::Terminate;
+    let current = snapshot(&root, &dir, distro, command == DesktopCommand::Launch, !terminate)?;
     if !field(&current["distribution"], "registration_guid")?.trim_matches(['{', '}']).eq_ignore_ascii_case(&registration_id) {
         return Err("WSL registration changed during desktop command".into());
     }
@@ -392,7 +424,10 @@ pub(crate) fn execute(distro: &str, command: DesktopCommand) -> Result<Value, St
         }
         return super::display::fit(field(&current["distribution"], "name")?, host, &dir);
     }
-    if command == DesktopCommand::Stop {
+    if matches!(command, DesktopCommand::Stop | DesktopCommand::Terminate) {
+        if terminate && hosts.is_empty() {
+            return terminate_registration(&registration.name, &registration_id, &dir);
+        }
         let Some(host) = hosts.first() else {
             let mut result = current;
             result["stop_requested"] = json!(false);
@@ -413,8 +448,17 @@ pub(crate) fn execute(distro: &str, command: DesktopCommand) -> Result<Value, St
         {
             return Err("Guest or recorded VM is unavailable; inspect the Native Host external-retirement result before recovery".into());
         }
-        let request = json!({"action":"stop","distribution":distro,"registration_guid":registration_id,"native":host});
+        let request = json!({"action":"stop","distribution":distro,"registration_guid":registration_id,
+            "native":host,"wait_for_exit":terminate});
         let mut result = observe_windows(&dir, request)?;
+        if terminate {
+            let instance = field(host, "instance")?;
+            let log = log_tail(Path::new(field(host, "diagnostic_log")?));
+            if result["native_exited"] != true || super::super::observed_lifecycle(&log, instance, false) != "native_retired" {
+                return Err(format!("Native retirement could not be confirmed. Inspect {}", dir.display()));
+            }
+            return terminate_registration(&registration.name, &registration_id, &dir);
+        }
         result["distro_name"] = current["distribution"]["name"].clone();
         result["native_retirement_confirmed"] = json!(false);
         result["diagnostics"] = json!(dir);

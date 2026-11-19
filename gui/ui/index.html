@@ -14,5 +14,11 @@
   <dialog id="install-dialog" aria-labelledby="install-title"><h2 id="install-title">Install a WSX distribution</h2><div id="install-content"></div><p id="install-status" role="status" aria-live="polite"></p><div class="actions"><button id="install-close" type="button">Close</button></div></dialog>
   <dialog id="environment-dialog" aria-labelledby="environment-title" aria-describedby="environment-message"><h2 id="environment-title">Windows or WSL setup needs attention</h2><p id="environment-message"></p><p id="environment-next-step">Complete the steps above, then try again.</p><div class="actions"><button id="environment-close" type="button">OK</button></div></dialog>
   <dialog id="upgrade-dialog" aria-labelledby="upgrade-title"><h2 id="upgrade-title">Support WSX</h2><p id="upgrade-description">Upgrade to Pro to launch your desktop with one click.</p><p id="upgrade-instruction">Or use the command line:</p><pre id="upgrade-command" class="upgrade-command"></pre><p id="portable-store-note" hidden>Already purchased Pro? Install the Store version and sign in with the Microsoft account used for purchase.</p><p id="upgrade-status" role="status"></p><div class="actions"><button id="store-buy" type="button">Upgrade to Pro</button><button id="copy-command" type="button">Copy command</button><button id="close-upgrade" type="button">Close</button></div></dialog>
+  <dialog id="stop-dialog" aria-labelledby="stop-title" aria-describedby="stop-instruction">
+    <h2 id="stop-title">Stop distribution</h2>
+    <p id="stop-instruction"></p>
+    <pre id="stop-command" class="upgrade-command"></pre>
+    <div class="actions"><button id="stop-close" type="button">Close</button></div>
+  </dialog>
   <footer><span class="footer-dot"></span> Community Core: BSL 1.1 <span>WSX MANAGER</span></footer>
 </main><div id="launch-message" class="toast" role="status" aria-live="polite" hidden></div></body></html>

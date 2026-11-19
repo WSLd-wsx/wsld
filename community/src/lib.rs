@@ -213,6 +213,15 @@ async fn launch_distribution(state: tauri::State<'_, GuiState>, name: String, gu
     }).await.map_err(|e| format!("Launch worker failed: {e}"))?
 }
 #[tauri::command]
+async fn stop_distribution(state: tauri::State<'_, GuiState>, name: String, guid: String) -> Result<bool, String> {
+    let backend = state.backend.clone();
+    let lease = state.gate.enter()?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _lease = lease;
+        backend.stop_distribution(&name, &guid)
+    }).await.map_err(|e| format!("Stop worker failed: {e}"))?
+}
+#[tauri::command]
 async fn online_releases(state: tauri::State<'_, GuiState>) -> Result<String, String> {
     let lease = state.gate.enter()?;
     tauri::async_runtime::spawn_blocking(move || { let _lease = lease; wsx_core::release::online().map(|v| v.to_string()) }).await
@@ -244,7 +253,7 @@ pub fn run_gui(backend: Arc<dyn Backend>) -> Result<(), String> {
         .invoke_handler(tauri::generate_handler![probe_note, probe_close, store_environment,
             store_open_listing, store_activate_edition, store_entitlement, store_purchase,
             store_check_updates, store_download_update, online_releases, install_release,
-            install_progress, inventory, launch_distribution])
+            install_progress, inventory, launch_distribution, stop_distribution])
         .setup(move |app| {
             tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
                 .title("WSX Manager")
