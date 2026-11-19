@@ -88,10 +88,11 @@ def assemble(package, runtime, kernel, source, output):
         with zipfile.ZipFile(output, 'x', compression=zipfile.ZIP_DEFLATED, allowZip64=True) as result:
             result.writestr('manifest.json', json.dumps(manifest, sort_keys=True, indent=2) + '\n')
             for name in sorted(material_names):
-                with product.open(name) as src, result.open('notices/' + name, 'w', force_zip64=True) as dst:
+                notice = zipfile.ZipInfo('notices/' + name, product.getinfo(name).date_time)
+                notice.compress_type = zipfile.ZIP_DEFLATED
+                with product.open(name) as src, result.open(notice, 'w', force_zip64=True) as dst:
                     while chunk := src.read(1024 * 1024): dst.write(chunk)
-            with kernel.open('rb') as src, result.open('kernel-source-evidence.zip', 'w', force_zip64=True) as dst:
-                while chunk := src.read(1024 * 1024): dst.write(chunk)
+            result.write(kernel, 'kernel-source-evidence.zip')
     return manifest
 
 
