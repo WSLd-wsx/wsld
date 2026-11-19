@@ -56,6 +56,7 @@ Copy-Item -LiteralPath $GuiNotices -Destination (Join-Path $content 'gui-third-p
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zipPath = Join-Path $Output 'wsx-community-slice.zip'
+$packagedAt = [DateTimeOffset]::Now
 $stream = [IO.File]::Open($zipPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
 try {
     $archive = [IO.Compression.ZipArchive]::new($stream, [IO.Compression.ZipArchiveMode]::Create, $true)
@@ -66,8 +67,12 @@ try {
             if ($file.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'ZIP source contains a reparse point' }
             $name = $file.FullName.Substring($prefix.Length).Replace('\','/')
             $entry = $archive.CreateEntry($name, [IO.Compression.CompressionLevel]::Optimal)
-            # Reproducible inputs can predate the ZIP format's 1980 epoch.
-            $entry.LastWriteTime = [DateTimeOffset]::new(1980, 1, 1, 0, 0, 0, [TimeSpan]::Zero)
+            $lastWriteTime = [DateTimeOffset]$file.LastWriteTime
+            # Some reproducible inputs have timestamps outside the ZIP date range.
+            if ($lastWriteTime.Year -lt 1980 -or $lastWriteTime.Year -gt 2107) {
+                $lastWriteTime = $packagedAt
+            }
+            $entry.LastWriteTime = $lastWriteTime
             $inputStream = [IO.File]::OpenRead($file.FullName)
             try { $outputStream = $entry.Open(); try { $inputStream.CopyTo($outputStream) } finally { $outputStream.Dispose() } }
             finally { $inputStream.Dispose() }
