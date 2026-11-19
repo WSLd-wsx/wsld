@@ -9,6 +9,7 @@ pub enum Command {
     Compatibility,
     Fit,
     Stop,
+    Terminate,
     Start {
         runtime: PathBuf,
         reload: bool,
@@ -96,6 +97,15 @@ pub fn execute(distro: &str, command: Command) -> Result<Value, String> {
         let _ = command;
         Err("Desktop commands require Windows WSL 2".into())
     }
+}
+
+/// Retire the bound desktop (if present), then terminate the WSL distribution.
+pub fn terminate(distro: &str, expected_guid: Option<&str>) -> Result<(), String> {
+    validate_name(distro)?;
+    #[cfg(windows)]
+    { super::windows::distro::execute_bound(distro, Command::Terminate, expected_guid).map(|_| ()) }
+    #[cfg(not(windows))]
+    { let _ = expected_guid; Err("Distribution termination requires Windows WSL".into()) }
 }
 
 /// WSL determines identity. The installation journal only establishes ownership.

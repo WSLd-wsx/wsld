@@ -6,8 +6,7 @@ pub fn execute(args: &[String]) -> Result<(), String> {
         }
     }
     if args.first().is_some_and(|s| s == "-t" || s == "--terminate") {
-        let code = terminate(args)?;
-        return if code == 0 { Ok(()) } else { Err(format!("wsl.exe exited with code {code}")) };
+        return terminate(args);
     }
     if args.first().is_some_and(|s| s == "-d" || s == "--distribution") {
         let default_args;
@@ -202,9 +201,9 @@ fn list_local(verbose: bool) -> Result<(), String> {
     }
 }
 
-pub(crate) fn terminate(args: &[String]) -> Result<i32, String> {
+fn terminate(args: &[String]) -> Result<(), String> {
     if args.len() != 2 || args[1].is_empty() { return Err("Usage: wsld.exe --terminate <Distro>".into()); }
-    run_wsl(args)
+    wsx_core::desktop::distro::terminate(&args[1], None)
 }
 
 fn run_wsl(args: &[impl AsRef<std::ffi::OsStr>]) -> Result<i32, String> {
@@ -336,7 +335,7 @@ Arguments for managing distributions:
                 Import the distribution without starting its desktop.
 
     --terminate, -t DISTRO_NAME
-        Terminate a WSL distribution.
+        Retire the WSX desktop if present, then terminate the WSL distribution.
 
 Arguments for running a desktop:
 

@@ -41,9 +41,20 @@ if($request.action -eq 'stop'){
  foreach($key in @('creation_filetime','executable','instance','vm')){
   if(!$current.identity_valid -or $current[$key] -cne $request.native.$key){throw 'Native process identity changed; no stop requested'}
  }
- $event=[Threading.EventWaitHandle]::OpenExisting("Local\WSXDirectStop-$(([guid]$current.instance).ToString('B').ToUpperInvariant())",[Security.AccessControl.EventWaitHandleRights]::Modify)
- try{if(!$event.Set()){throw 'Stop event signalling failed'}}finally{$event.Dispose()}
- @{stop_requested=$true;native=$current;registration=$registration} | ConvertTo-Json -Depth 8 -Compress
+ $target=$null
+ try {
+  if($request.wait_for_exit -eq $true){
+   $target=Get-Process -Id $current.pid -ErrorAction Stop
+   $null=$target.Handle
+   if($target.StartTime.ToUniversalTime().ToFileTimeUtc().ToString() -cne $current.creation_filetime -or $target.HasExited){
+    throw 'Native process identity changed; no stop requested'
+   }
+  }
+  $event=[Threading.EventWaitHandle]::OpenExisting("Local\WSXDirectStop-$(([guid]$current.instance).ToString('B').ToUpperInvariant())",[Security.AccessControl.EventWaitHandleRights]::Modify)
+  try{if(!$event.Set()){throw 'Stop event signalling failed'}}finally{$event.Dispose()}
+  if($null -ne $target -and !$target.WaitForExit(90000)){throw 'Native retirement timed out'}
+  @{stop_requested=$true;native_exited=($null -ne $target);native=$current;registration=$registration} | ConvertTo-Json -Depth 8 -Compress
+ } finally {if($null -ne $target){$target.Dispose()}}
  exit
 }
 if($request.action -ne 'discover'){throw 'Unsupported desktop observation action'}

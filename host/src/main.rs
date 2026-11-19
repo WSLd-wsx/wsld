@@ -35,18 +35,6 @@ fn execute() -> Result<(), String> {
 }
 fn main() -> ExitCode {
     #[cfg(windows)]
-    {
-        let name = env::current_exe().ok().and_then(|p| p.file_name().map(|n| n.to_string_lossy().to_ascii_lowercase()));
-        let args: Vec<String> = env::args().skip(1).collect();
-        if matches!(name.as_deref(), Some("wsld.exe" | "wsx.exe"))
-            && args.first().is_some_and(|s| s == "-t" || s == "--terminate") {
-            match cli::terminate(&args) {
-                Ok(code) => std::process::exit(code),
-                Err(error) => { eprintln!("{error}"); std::process::exit(1); }
-            }
-        }
-    }
-    #[cfg(windows)]
     let trace = if env::var_os("WSX_LOAD_TRACE").is_some() {
         windows::Trace::start().ok()
     } else {

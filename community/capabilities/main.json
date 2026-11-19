@@ -2,5 +2,5 @@
   "identifier": "community-window",
   "description": "Bounded manager operations from the bundled local window",
   "windows": ["main"],
-  "permissions": ["allow-probe-note", "allow-probe-close", "allow-store-environment", "allow-store-open-listing", "allow-store-activate-edition", "allow-store-entitlement", "allow-store-purchase", "allow-store-check-updates", "allow-store-download-update", "allow-online-releases", "allow-install-release", "allow-install-progress", "allow-inventory", "allow-launch-distribution"]
+  "permissions": ["allow-probe-note", "allow-probe-close", "allow-store-environment", "allow-store-open-listing", "allow-store-activate-edition", "allow-store-entitlement", "allow-store-purchase", "allow-store-check-updates", "allow-store-download-update", "allow-online-releases", "allow-install-release", "allow-install-progress", "allow-inventory", "allow-launch-distribution", "allow-stop-distribution"]
 }

@@ -137,11 +137,17 @@ pub fn table() -> HostV2 {
 }
 unsafe extern "C" fn launch(name: *const u8, name_len: u32, guid: *const u8, guid_len: u32, mode: u32, error: *mut u8, capacity: u32, written: *mut u32) -> i32 {
     std::panic::catch_unwind(|| {
-        if written.is_null() || error.is_null() || capacity < 1024 || name.is_null() || guid.is_null() || name_len == 0 || name_len > 1024 || guid_len == 0 || guid_len > 64 || ![1, 2].contains(&mode) { return -1; }
+        if written.is_null() || error.is_null() || capacity < 1024 || name.is_null() || guid.is_null() || name_len == 0 || name_len > 1024 || guid_len == 0 || guid_len > 64 { return -1; }
         *written = 0;
         let name = match std::str::from_utf8(std::slice::from_raw_parts(name, name_len as usize)) { Ok(s) if !s.contains('\0') => s, _ => return -1 };
         let guid = match std::str::from_utf8(std::slice::from_raw_parts(guid, guid_len as usize)) { Ok(s) if !s.contains('\0') => s, _ => return -1 };
-        match wsx_core::launch_distribution(name, guid, mode == 1) {
+        let result = match mode {
+            wsx_abi::DISTRIBUTION_DESKTOP => wsx_core::launch_distribution(name, guid, true),
+            wsx_abi::DISTRIBUTION_TERMINAL => wsx_core::launch_distribution(name, guid, false),
+            wsx_abi::DISTRIBUTION_TERMINATE => wsx_core::desktop::distro::terminate(name, Some(guid)),
+            _ => return -1,
+        };
+        match result {
             Ok(()) => 0,
             Err(message) => {
                 let bytes = message.as_bytes();

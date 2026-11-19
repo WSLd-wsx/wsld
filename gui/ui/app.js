@@ -105,6 +105,7 @@ window.runRoutingContextAcceptance = async () => {
 let inventoryInFlight = null;
 let inventoryLogged = false;
 const launching = new Set();
+const stopping = new Set();
 const launchErrors = new Map();
 let toastTimer = null;
 let currentSnapshot = null;
@@ -160,22 +161,31 @@ function renderInventory(snapshot) {
       meta.append(element('span', '', 'WSL distribution'));
     }
     copy.append(meta);
-    const state = element('div', `state${row.wsl_running ? ' running' : ''}`);
-    const dot = element('span', 'dot'); dot.setAttribute('aria-hidden', 'true');
-    state.append(dot, document.createTextNode(row.wsl_running ? 'Running' : 'Stopped'));
     const actions = element('div', 'card-actions');
     const terminalKey = `${row.registration}:terminal`;
     const desktopKey = `${row.registration}:desktop`;
+    const stopPending = stopping.has(identity);
+    const state = element('button', `state${row.wsl_running ? ' running' : ''}`);
+    state.type = 'button';
+    state.disabled = !row.wsl_running || stopPending || launching.has(terminalKey) || launching.has(desktopKey);
+    if (row.wsl_running && !stopPending) {
+      state.title = 'Stop this running distribution';
+      state.setAttribute('aria-label', `Stop ${row.registration} (running)`);
+    }
+    const dot = element('span', 'dot');
+    dot.setAttribute('aria-hidden', 'true');
+    state.append(dot, document.createTextNode(stopPending ? 'Stopping…' : row.wsl_running ? 'Stop' : 'Stopped'));
+    state.addEventListener('click', () => stopDistribution(row, identity));
     const terminalButton = element('button', 'launch terminal-action', launching.has(terminalKey) ? 'Opening…' : 'Open terminal');
     terminalButton.type = 'button';
-    terminalButton.disabled = typeof row.registration_guid !== 'string' || launching.has(terminalKey);
+    terminalButton.disabled = typeof row.registration_guid !== 'string' || launching.has(terminalKey) || stopPending;
     terminalButton.setAttribute('aria-label', `Open terminal for ${row.registration}`);
     terminalButton.addEventListener('click', () => launch(row, false, identity));
     actions.append(terminalButton);
     if (verified) {
       const desktopButton = element('button', `launch ${licensed ? 'desktop-action' : 'pro-action'}`, launching.has(desktopKey) ? 'Opening…' : 'Open Desktop');
       desktopButton.type = 'button';
-      desktopButton.disabled = typeof row.registration_guid !== 'string' || launching.has(desktopKey);
+      desktopButton.disabled = typeof row.registration_guid !== 'string' || launching.has(desktopKey) || stopPending;
       desktopButton.setAttribute('aria-label', `${licensed ? 'Open Linux desktop for' : 'Upgrade to open desktop for'} ${row.registration}`);
       desktopButton.addEventListener('click', () => {
         if (!licenseKnown) { showToast('Pro access is not confirmed. Use Check Pro access and try again.', true); return; }
@@ -207,17 +217,17 @@ function refreshInventory() {
   })();
   return inventoryInFlight;
 }
-async function refreshAfterInstall() {
-  // A refresh already in flight may have sampled WSL before the import finished.
+async function refreshAfterMutation() {
+  // A refresh already in flight may have sampled WSL before the operation finished.
   if (inventoryInFlight) await inventoryInFlight;
   await refreshInventory();
 }
 function needsPowerShell(name) { return !/^[\p{L}\p{N} ._-]+$/u.test(name); }
-function shellCommand(program, name) {
+function shellCommand(program, name, option = '-d') {
   // Core rejects control characters, slashes, leading hyphens and names over
   // 256 UTF-8 bytes. PowerShell single-quoted literals preserve metacharacters.
   if (!name || name.startsWith('-') || /[\/\\\p{Cc}]/u.test(name) || new TextEncoder().encode(name).length > 256) return null;
-  return needsPowerShell(name) ? `${program} -d '${name.replace(/'/g, "''")}'` : `${program} -d "${name}"`;
+  return needsPowerShell(name) ? `${program} ${option} '${name.replace(/'/g, "''")}'` : `${program} ${option} "${name}"`;
 }
 function desktopCommand(name) { return shellCommand('wsld.exe', name); }
 function showUpgrade(name) {
@@ -239,7 +249,7 @@ function showToast(text, isError = false) {
 }
 async function launch(row, desktop, identity) {
   const key = `${row.registration}:${desktop ? 'desktop' : 'terminal'}`;
-  if (launching.has(key)) return;
+  if (launching.has(key) || stopping.has(identity)) return;
   launchErrors.delete(identity); launching.add(key); renderInventory(currentSnapshot);
   try {
     await invoke('launch_distribution', { name: row.registration, guid: row.registration_guid, desktop });
@@ -256,6 +266,41 @@ async function launch(row, desktop, identity) {
     await refreshInventory();
   }
 }
+function showStopCommand(name) {
+  const command = shellCommand('wsld.exe', name, '-t');
+  $('stop-instruction').textContent = command
+    ? `Run this command in ${needsPowerShell(name) ? 'PowerShell' : 'a terminal'} to stop ${name}.`
+    : 'Run wsld.exe -t with the distribution name as a quoted argument.';
+  $('stop-command').textContent = command || '';
+  $('stop-command').hidden = !command;
+  $('stop-dialog').showModal();
+}
+async function stopDistribution(row, identity) {
+  if (!row.wsl_running || stopping.has(identity)) return;
+  if (isPortable || !licensed) {
+    showStopCommand(row.registration);
+    return;
+  }
+  if (typeof row.registration_guid !== 'string') {
+    showToast('The WSL registration could not be verified. Refresh the list and try again.', true);
+    return;
+  }
+  launchErrors.delete(identity);
+  stopping.add(identity);
+  renderInventory(currentSnapshot);
+  try {
+    const stopped = await invoke('stop_distribution', { name: row.registration, guid: row.registration_guid });
+    if (stopped) showToast(`Stopped ${row.registration}.`);
+    else showStopCommand(row.registration);
+  } catch (error) {
+    launchErrors.set(identity, `Could not stop: ${error}`);
+    showToast(`Could not stop ${row.registration}. See the message on its card.`, true);
+  } finally {
+    stopping.delete(identity);
+    await refreshAfterMutation();
+  }
+}
+$('stop-close').addEventListener('click', () => $('stop-dialog').close());
 $('refresh').addEventListener('click', refreshInventory);
 const environmentReady = invoke('store_environment');
 let routingWarningShown = false;
@@ -333,9 +378,21 @@ async function checkEntitlement() {
   }
 }
 $('store-restore').addEventListener('click', checkEntitlement);
-$('store-upgrade').addEventListener('click', () => {
+$('store-upgrade').addEventListener('click', async () => {
+  if (isPortable) {
+    const button = $('store-upgrade');
+    button.disabled = true;
+    try {
+      await invoke('store_open_listing');
+    } catch (error) {
+      showToast(`Unable to open Microsoft Store: ${error}`, true);
+    } finally {
+      button.disabled = false;
+    }
+    return;
+  }
   currentCommand = 'wsld.exe -l -o';
-  $('upgrade-description').textContent = isPortable ? 'Get the Store version for one-click WSX desktop installation and launch.' : 'Upgrade to Pro for one-click WSX desktop installation and launch.';
+  $('upgrade-description').textContent = 'Upgrade to Pro for one-click WSX desktop installation and launch.';
   $('upgrade-instruction').textContent = 'Or list releases and install with the free command line:';
   $('upgrade-command').textContent = currentCommand;
   $('copy-command').disabled = false; $('upgrade-status').textContent = '';
@@ -512,7 +569,7 @@ $('add-distro').addEventListener('click', async () => {
           finished = true;
           if (typeof result.distro_name !== 'string' || typeof result.registration_guid !== 'string') throw new Error('Import returned an incomplete identity; refresh before retrying.');
           installedGuid = result.registration_guid;
-          await refreshAfterInstall();
+          await refreshAfterMutation();
           status.textContent = `Installed ${result.distro_name}`;
           progress.max = 1; progress.value = 1;
           detail.textContent = `Complete account setup in a terminal: wsld.exe -d "${result.distro_name}"`;

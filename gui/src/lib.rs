@@ -27,6 +27,8 @@ pub trait Backend: Send + Sync {
     fn inventory(&self) -> Result<String, String>;
     fn open_terminal(&self, name: &str, registration_guid: &str) -> Result<(), String>;
     fn open_desktop(&self, name: &str, registration_guid: &str) -> Result<(), String>;
+    /// Returns false when the user should use the CLI.
+    fn stop_distribution(&self, _name: &str, _guid: &str) -> Result<bool, String> { Ok(false) }
     fn packaged(&self) -> Result<bool, String> { Ok(false) }
     fn webview_directory(&self) -> Result<Option<std::path::PathBuf>, String> { Ok(None) }
     fn store_installed(&self) -> Result<Option<bool>, String> { Ok(None) }
