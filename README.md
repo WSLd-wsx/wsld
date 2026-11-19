@@ -2,17 +2,19 @@
 
 **A Linux desktop on Windows, powered by WSL 2 and your GPU.**
 
-`wsld` is the engine and command-line interface for WSX. It installs supported
-Linux desktop images into Windows Subsystem for Linux (WSL), manages their
-lifecycle, and connects a Linux desktop to a Windows graphics runtime. The goal
-is to let a WSL desktop use the Windows host GPU for accelerated graphics while
-remaining accessible as a desktop window on Windows.
+`wsld` is the WSX engine and CLI. It installs supported Linux desktop images
+into WSL 2, manages their lifecycle, and connects the desktop to a Windows
+graphics runtime so it can use the host GPU in a desktop window on Windows.
 
-WSX uses a paired Windows Host, Linux Guest and kernel-module graphics stack.
-The GPU is shared through that stack; this is not a claim of exclusive physical
-PCIe passthrough or support for every GPU, driver, WSL kernel or Linux desktop.
-Hardware acceleration and desktop startup depend on the actual compatible
-components and runtime checks.
+<p align="center">
+  <img src="docs/assets/wsx-omarchy-demo.png" alt="PowerShell and Windows Task Manager beside an Omarchy Hyprland desktop displaying vkmark results">
+  <br>
+  <strong>Left.</strong> PowerShell runs <code>wsl.exe --version</code> and
+  <code>wsld.exe --install wsx-omarchy-4.5.0-r3</code>. Windows Task Manager shows active GPU utilization.
+  <br>
+  <strong>Right.</strong> WSX Desk Community Edition runs Hyprland with
+  <code>Virtio-GPU Venus</code> hardware acceleration and <code>vkmark</code> frame-rate output.
+</p>
 
 > **Alpha software:** compatibility and features are changing. Use a test
 > environment, keep backups, and do not depend on this build for critical work.
@@ -20,6 +22,11 @@ components and runtime checks.
 > GPU or update path has passed acceptance.
 
 ## What wsld does
+
+WSX shares the Windows GPU through paired Windows Host, Linux Guest and
+kernel-module components. This is not exclusive physical PCIe passthrough.
+Hardware acceleration and desktop startup depend on compatible components and
+runtime checks. Support varies by GPU, driver, WSL kernel and Linux desktop.
 
 - Finds and installs supported WSX desktop images into new WSL 2 distributions.
 - Checks the Windows, WSL and graphics environment before installation, and
@@ -50,8 +57,10 @@ convert arbitrary existing WSL installations into WSX desktops. See
   requests elevation through UAC.
 - **Graphics:** a Windows GPU and driver with the Vulkan capabilities required by
   the selected WSX graphics path, plus a compatible WSL kernel, WSX modules and
-  matching Host/Guest components. The active display adapter is checked at
-  runtime. A particular GPU family or driver is not automatically supported.
+  matching Host/Guest components. The current desktop requires Vulkan
+  `dynamicRendering` for both zero-copy and staging-copy.
+  `wsld.exe --check-environment` and the installer check this feature on the
+  active display adapter before any rootfs download.
 - **CPU:** image requirements vary. For example, the recorded CachyOS Plasma
   candidate requires x86-64-v3; WSX checks declared requirements before import.
 - **Desktop manager:** Microsoft Edge WebView2 Runtime is required for the GUI.
@@ -91,31 +100,38 @@ systems and untested Windows/WSL versions need independent validation. See
 
 ## Community Edition: download and use
 
-1. Open [GitHub Releases](https://github.com/WSLd-wsx/wsld/releases) and select
-   a Community Edition release. During alpha, candidates may appear under
-   **Pre-release**. Download `wsx-community-windows-x64.zip` and the accompanying
-   `wsx-community-materials.zip` and `SHA256SUMS` from the **same release**.
-2. Check the downloaded ZIP hashes against `SHA256SUMS`, then extract the
-   Windows ZIP to a local fixed drive. Keep the files and directories together;
-   the executables alone do not contain the complete paired runtime. The
-   materials ZIP contains component notices and source evidence.
-3. Open Command Prompt or PowerShell with **Run as administrator** using the
-   Windows account that owns the WSL distribution, then go to the extracted
-   directory and check the environment. Run installation and desktop commands
-   from that terminal. Listing distributions, help and version work in a
-   standard terminal. When opening `wsxdesk.exe` from Explorer, approve the UAC
-   prompt with the account that owns the distribution.
+1. **Download the release files.** Select a Community Edition release on
+   [GitHub Releases](https://github.com/WSLd-wsx/wsld/releases). During alpha,
+   candidates may appear under **Pre-release**. Download
+   `wsx-community-windows-x64.zip`, `wsx-community-materials.zip` and
+   `SHA256SUMS` from the **same release**.
+
+2. **Verify and extract.** Run this command in the download directory or provide
+   the full path to the ZIP.
 
    ```powershell
    Get-FileHash .\wsx-community-windows-x64.zip -Algorithm SHA256
+   ```
+
+   Compare the hash with the corresponding line in `SHA256SUMS` and repeat for
+   the materials ZIP, which contains component notices and source evidence.
+   Extract the Windows ZIP to a local fixed drive. Keep the extracted files and
+   directories together because the paired runtime needs more than the executables.
+
+3. **Check the environment.** Open Command Prompt or PowerShell with **Run as
+   administrator**, using the Windows account that owns the WSL distribution.
+   Change to the extracted directory and run the environment check.
+
+   ```powershell
    .\wsld.exe --check-environment
    ```
 
-   Run `Get-FileHash` from the download directory, or provide the full path to
-   the ZIP. Compare its value with the corresponding line in `SHA256SUMS`; do
-   the same for the materials ZIP.
+   Use that terminal for installation and desktop commands. Listing distributions,
+   help and version work in a standard terminal. If you open `wsxdesk.exe` from
+   Explorer, approve the UAC prompt with the account that owns the distribution.
 
-4. List eligible stable desktop images and install Omarchy:
+4. **Choose and install an image.** List eligible stable desktop images and
+   install Omarchy.
 
    ```powershell
    .\wsld.exe -l -o
@@ -139,8 +155,8 @@ systems and untested Windows/WSL versions need independent validation. See
    metadata without downloading or importing. If first launch fails after import,
    resume with the distribution name instead of reinstalling.
 
-5. Find the actual distribution name in WSL, then use that name for desktop
-   commands:
+5. **Manage the desktop.** Find the actual distribution name in WSL and use it
+   to launch the desktop, check status, fit the window or stop the session.
 
    ```powershell
    wsl.exe -l -v
@@ -189,14 +205,14 @@ and feedback are welcome.
 
 ## Licenses and binary terms
 
-Original WGY-owned material in this repository is licensed under the
+**Repository source.** Original WGY-owned material in this repository is licensed under the
 [Business Source License 1.1](LICENSE), with a noncommercial production-use
 grant and an Apache-2.0 Change License after the applicable Change Date. BSL is
 source-available and is not an OSI-approved open-source license. See
 [licensing scope](LICENSING.md), [NOTICE](NOTICE) and
 [third-party notices](THIRD-PARTY-NOTICES.md) for exceptions and retained rights.
 
-The proprietary, precompiled WSX Host and Guest components have separate binary
+**Precompiled components.** The proprietary, precompiled WSX Host and Guest components have separate binary
 terms. The community grant permits authorized recipients to use them free for
 noncommercial purposes; it restricts redistribution, modification and reverse
 engineering, subject to the terms and applicable law. The complete
