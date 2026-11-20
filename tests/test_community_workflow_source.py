@@ -33,7 +33,7 @@ class CommunitySourceTests(unittest.TestCase):
         for key, output in (('RUNTIME_TAG', 'tag'), ('RUNTIME_ASSET', 'asset'), ('RUNTIME_SHA256', 'sha256')):
             self.assertEqual(build['env'][key], '${{ steps.runtime.outputs.' + output + ' }}')
         draft = next(step for step in steps if step['name'] == 'Create draft release for review')
-        self.assertIn('community-draft-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT', draft['run'])
+        self.assertIn('$env:RELEASE_TAG = "v$env:COMMUNITY_VERSION"', draft['run'])
 
     def test_delivery_verifies_mpl_sources_against_build_inputs(self):
         path = Path(__file__).resolve().parents[1] / '.github/workflows/community-release.yml'
@@ -44,12 +44,19 @@ class CommunitySourceTests(unittest.TestCase):
         for value in ('community/Cargo.lock', 'mpl-dependency-tree.txt', 'wsx-community-windows-x64.zip', 'wsx-community-materials.zip'):
             self.assertIn(value, build['run'])
 
-    def test_release_titles_use_community_edition(self):
+    def test_executable_and_release_share_the_selected_version(self):
         path = Path(__file__).resolve().parents[1] / '.github/workflows/community-release.yml'
         steps = yaml.safe_load(path.read_text(encoding='utf-8'))['jobs']['build']['steps']
+        build = next(step for step in steps if step['name'] == 'Build and package community edition')
+        self.assertEqual(build['env']['COMMUNITY_VERSION'], '${{ steps.version.outputs.number }}')
+        self.assertIn('$env:TAURI_CONFIG = @{version = $env:COMMUNITY_VERSION}', build['run'])
+        self.assertIn('$versionInfo.ProductVersion -cne $env:COMMUNITY_VERSION', build['run'])
         for name in ('Save test release for review', 'Create draft release for review'):
             step = next(step for step in steps if step['name'] == name)
-            self.assertIn('--title "WSX Community Edition $env:GITHUB_RUN_ID"', step['run'])
+            self.assertEqual(step['env']['COMMUNITY_VERSION'], build['env']['COMMUNITY_VERSION'])
+            self.assertIn('"v$env:COMMUNITY_VERSION"', step['run'])
+            self.assertIn('--verify-tag', step['run'])
+            self.assertIn('--title "WSX Community Edition $env:COMMUNITY_VERSION"', step['run'])
 
     def test_release_target_accepts_either_repository_visibility(self):
         path = Path(__file__).resolve().parents[1] / '.github/workflows/community-release.yml'

@@ -52,6 +52,29 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Rust toolchain installation failed' }
           rustup default 1.95.0
           if ($LASTEXITCODE -ne 0) { throw 'Rust toolchain selection failed' }
+      - name: Select the next Community version
+        id: version
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $baseline = (Get-Content -Raw wsld/community/tauri.conf.json | ConvertFrom-Json).version
+          if ($baseline -cnotmatch '^[0-9]+\.[0-9]+\.[0-9]+$') { throw 'Invalid Community baseline version' }
+          $highest = [version]$baseline
+          $tags = gh api --paginate 'repos/WSLd-wsx/wsld/tags?per_page=100' --jq '.[].name'
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot list Community version tags' }
+          foreach ($tag in $tags) {
+            if ($tag -cmatch '^v((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))$') {
+              $candidate = [version]$Matches[1]
+              if ($candidate -gt $highest) { $highest = $candidate }
+            }
+          }
+          if ($highest.Major -gt 65535 -or $highest.Minor -gt 65535 -or $highest.Build -ge 65535) {
+            throw 'Community version exceeds the Windows version resource range'
+          }
+          $version = "$($highest.Major).$($highest.Minor).$($highest.Build + 1)"
+          "number=$version" >> $env:GITHUB_OUTPUT
+          "Community version: $version" >> $env:GITHUB_STEP_SUMMARY
       - name: Download and verify private runtime inputs
         id: runtime
         shell: pwsh
@@ -131,11 +154,17 @@ jobs:
           RUNTIME_ASSET: ${{ steps.runtime.outputs.asset }}
           RUNTIME_SHA256: ${{ steps.runtime.outputs.sha256 }}
           KERNEL_TAG: ${{ steps.kernel.outputs.tag }}
+          COMMUNITY_VERSION: ${{ steps.version.outputs.number }}
         run: |
           $root = "$env:RUNNER_TEMP/wsx-product-runtime"
           $evidence = "$env:RUNNER_TEMP/wsx-community-build"
           $package = "$env:RUNNER_TEMP/wsx-community-package"
+          $env:TAURI_CONFIG = @{version = $env:COMMUNITY_VERSION} | ConvertTo-Json -Compress
           & ./wsld/scripts/build-community-slice.ps1 -Evidence $evidence -RuntimePackage "$root/runtime" -RuntimeCatalog "$root/runtime-catalog.json" -GuestAdapterCatalog "$root/guest-adapter-catalog.json"
+          $versionInfo = (Get-Item -LiteralPath "$evidence/package/wsldesk.exe").VersionInfo
+          if ($versionInfo.ProductVersion -cne $env:COMMUNITY_VERSION -or $versionInfo.FileVersion -cne $env:COMMUNITY_VERSION) {
+            throw 'Community executable version differs from the selected release version'
+          }
           & ./wsld/scripts/package-community-slice.ps1 -ExecutablePackage "$evidence/package" -RuntimePackage "$root/runtime" -GuiNotices "$evidence/gui-notices" -Output $package
           Copy-Item "$package/wsx-community-slice.zip" "$package/wsx-community-windows-x64.zip"
           $zip = [IO.Compression.ZipFile]::OpenRead("$package/wsx-community-windows-x64.zip")
@@ -155,7 +184,7 @@ jobs:
           [IO.File]::WriteAllText("$package/SHA256SUMS", "$hash  wsx-community-windows-x64.zip`n$materialsHash  wsx-community-materials.zip`n")
           python wsld/scripts/audit-community-package.py "$package/wsx-community-windows-x64.zip" "$package/community-audit.json" --kernel-evidence "$package/kernel-source-evidence.zip"
           if ($LASTEXITCODE -ne 0) { throw 'Community package evidence audit failed' }
-          "Source commit: $env:SOURCE_COMMIT`nRuntime: approved/runtime release $env:RUNTIME_TAG asset $env:RUNTIME_ASSET`nRuntime SHA-256: $env:RUNTIME_SHA256`nKernel modules: $env:KERNEL_TAG`nZIP SHA-256: $hash" | Set-Content "$package/build-provenance.txt"
+          "Community version: $env:COMMUNITY_VERSION`nSource commit: $env:SOURCE_COMMIT`nRuntime: approved/runtime release $env:RUNTIME_TAG asset $env:RUNTIME_ASSET`nRuntime SHA-256: $env:RUNTIME_SHA256`nKernel modules: $env:KERNEL_TAG`nZIP SHA-256: $hash" | Set-Content "$package/build-provenance.txt"
       - name: Save Cargo registry cache
         if: ${{ steps.registry-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
@@ -171,13 +200,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_COMMIT: ${{ steps.source.outputs.sha }}
+          COMMUNITY_VERSION: ${{ steps.version.outputs.number }}
         run: |
           $ErrorActionPreference = 'Stop'
           $info = gh api repos/WSLd-wsx/wsld | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0 -or $info.full_name -cne 'WSLd-wsx/wsld') { throw 'Source repository identity check failed' }
-          $tag = "community-test-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          $tag = "v$env:COMMUNITY_VERSION"
+          gh api --method POST repos/WSLd-wsx/wsld/git/refs -f "ref=refs/tags/$tag" -f "sha=$env:SOURCE_COMMIT"
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot create the new version tag; inspect the target repository before retrying' }
           $p = "$env:RUNNER_TEMP/wsx-community-package"
-          gh release create $tag "$p/wsx-community-windows-x64.zip" "$p/wsx-community-materials.zip" "$p/SHA256SUMS" "$p/build-provenance.txt" "$p/community-audit.json" --repo WSLd-wsx/wsld --target $env:SOURCE_COMMIT --prerelease --latest=false --title "WSX Community Edition $env:GITHUB_RUN_ID" --notes 'Test candidate. License review and Windows desktop acceptance remain required.'
+          gh release create $tag "$p/wsx-community-windows-x64.zip" "$p/wsx-community-materials.zip" "$p/SHA256SUMS" "$p/build-provenance.txt" "$p/community-audit.json" --repo WSLd-wsx/wsld --verify-tag --prerelease --latest=false --title "WSX Community Edition $env:COMMUNITY_VERSION" --notes 'Download and extract wsx-community-windows-x64.zip, then launch wsldesk.exe. See SHA256SUMS for download verification and build-provenance.txt for the source and component versions.'
           if ($LASTEXITCODE -ne 0) { throw 'Cannot create the test release; inspect the repository before retrying' }
           $release = gh release view $tag --repo WSLd-wsx/wsld --json isPrerelease,isDraft,tagName | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0 -or -not $release.isPrerelease -or $release.isDraft -or $release.tagName -cne $tag) { throw 'Cannot confirm the test release' }
@@ -196,8 +228,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           HOST_TOKEN: ${{ secrets.WSXD_TOKEN }}
           SOURCE_COMMIT: ${{ steps.source.outputs.sha }}
+          COMMUNITY_VERSION: ${{ steps.version.outputs.number }}
         run: |
-          $env:RELEASE_TAG = "community-draft-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          $env:RELEASE_TAG = "v$env:COMMUNITY_VERSION"
           $info = gh api repos/WSLd-wsx/wsld | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0 -or $info.full_name -cne 'WSLd-wsx/wsld') { throw 'Source repository identity check failed' }
           $previousToken = $env:GH_TOKEN
@@ -219,7 +252,7 @@ jobs:
           gh api --method POST repos/WSLd-wsx/wsld/git/refs -f "ref=refs/tags/$env:RELEASE_TAG" -f "sha=$env:SOURCE_COMMIT"
           if ($LASTEXITCODE -ne 0) { throw 'Cannot create the new tag; inspect the target repository before retrying' }
           $p = "$env:RUNNER_TEMP/wsx-community-package"
-          gh release create $env:RELEASE_TAG "$p/wsx-community-windows-x64.zip" "$p/wsx-community-materials.zip" "$p/SHA256SUMS" "$p/build-provenance.txt" "$p/community-audit.json" --repo WSLd-wsx/wsld --verify-tag --draft --title "WSX Community Edition $env:GITHUB_RUN_ID" --notes 'Draft candidate. License, component distribution, Windows acceptance and release readiness require review.'
+          gh release create $env:RELEASE_TAG "$p/wsx-community-windows-x64.zip" "$p/wsx-community-materials.zip" "$p/SHA256SUMS" "$p/build-provenance.txt" "$p/community-audit.json" --repo WSLd-wsx/wsld --verify-tag --draft --title "WSX Community Edition $env:COMMUNITY_VERSION" --notes 'Download and extract wsx-community-windows-x64.zip, then launch wsldesk.exe. See SHA256SUMS for download verification and build-provenance.txt for the source and component versions.'
           if ($LASTEXITCODE -ne 0) { throw 'Draft creation failed; the new tag is retained for inspection' }
           $draft = gh release view $env:RELEASE_TAG --repo WSLd-wsx/wsld --json isDraft | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0 -or -not $draft.isDraft) { throw 'Cannot confirm that the new Release is a draft' }

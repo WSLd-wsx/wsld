@@ -13,6 +13,13 @@ collects dependency notices for review. `scripts/package-community-slice.ps1`
 can assemble a diagnostic ZIP from that output and the same runtime package.
 It does not establish licensing or product release approval.
 
+The GitHub Community workflow increments the patch version from the highest
+existing `vMAJOR.MINOR.PATCH` tag or the version in
+`community/tauri.conf.json`, whichever is higher. It verifies the Windows file
+and product versions before creating the matching tag and Release. Existing tags
+reserve their versions, including tags created for drafts. Promote a draft to
+a pre-release and then to a stable release by editing the same GitHub Release.
+
 The Store counterpart is `store-edition/scripts/build-store-slice.ps1`; it checks the
 same runtime closure and builds the private Store executable. The existing
 `build-store-package.ps1` accepts `-LinkedPackage` for the new PE, the matching
