@@ -27,7 +27,8 @@ class BuildIdAssetTests(unittest.TestCase):
             for name, mtime in module_times.items():
                 path = snapshot / 'groups' / group / name
                 path.write_bytes(name.encode())
-                os.utime(path, (mtime, mtime))
+                timestamp = mtime * 1_000_000_000 + 123_456_789
+                os.utime(path, ns=(timestamp, timestamp))
                 digest = module.package.digest(path)
                 records[name] = {'sha256': digest, 'bytes': path.stat().st_size}
                 audit_modules[name] = {'sha256': digest, 'missing': [], 'mismatches': [],
@@ -45,7 +46,9 @@ class BuildIdAssetTests(unittest.TestCase):
             self.assertEqual(result['archive'], 'modules-' + 'b' * 40 + '.tar.gz')
             self.assertEqual(result['archive_sha256'], module.package.digest(root / 'out' / result['archive']))
             with tarfile.open(root / 'out' / result['archive'], 'r:gz') as archive:
-                self.assertEqual({member.name: member.mtime for member in archive}, module_times)
+                members = archive.getmembers()
+                self.assertEqual({member.name: member.mtime for member in members}, module_times)
+                self.assertTrue(all(member.isfile() and not member.pax_headers for member in members))
             self.assertFalse(result['release_ready'])
             audit_modules[next(iter(audit_modules))]['mismatches'] = ['bad']
             (snapshot / 'audits' / ('c' * 64 + '.json')).write_text(json.dumps(audit))

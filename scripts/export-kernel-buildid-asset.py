@@ -42,12 +42,13 @@ def export(snapshot, kernel_exports, output):
     output.mkdir(parents=True)
     archive = output / ('modules-' + identity + '.tar.gz')
     with archive.open('xb') as raw, gzip.GzipFile(filename='', mode='wb', fileobj=raw, mtime=0) as compressed:
-        with tarfile.open(fileobj=compressed, mode='w', format=tarfile.PAX_FORMAT) as tar:
+        with tarfile.open(fileobj=compressed, mode='w', format=tarfile.USTAR_FORMAT) as tar:
             for name in sorted(package.MODULES):
                 path = snapshot / 'groups' / target['group'] / name
                 info = tar.gettarinfo(str(path), arcname=name)
                 info.uid = info.gid = 0
                 info.uname = info.gname = ''
+                info.mtime = int(info.mtime)
                 info.mode = 0o644
                 with path.open('rb') as source:
                     tar.addfile(info, source)
