@@ -35,7 +35,8 @@ class ExportTests(unittest.TestCase):
             module_times = {name: 1795161600 + offset
                             for offset, name in enumerate(sorted(package.MODULES))}
             for name, mtime in module_times.items():
-                os.utime(group / name, (mtime, mtime))
+                timestamp = mtime * 1_000_000_000 + 123_456_789
+                os.utime(group / name, ns=(timestamp, timestamp))
             first = module.export(root / 'merged', root / 'out1', input_archive)
             second = module.export(root / 'merged', root / 'out2', input_archive)
             self.assertEqual(first, second)
@@ -51,7 +52,9 @@ class ExportTests(unittest.TestCase):
             self.assertEqual(package.digest(root / 'out1' / (group + '.oci.json')),
                              first['groups'][group]['oci_manifest_sha256'])
             with tarfile.open(root / 'out1' / (group + '.tar.gz'), 'r:gz') as archive:
-                self.assertEqual({member.name: member.mtime for member in archive}, module_times)
+                members = archive.getmembers()
+                self.assertEqual({member.name: member.mtime for member in members}, module_times)
+                self.assertTrue(all(member.isfile() and not member.pax_headers for member in members))
             self.assertFalse(first['release_ready'])
 
             manifest = (root / 'out1' / (group + '.oci.json')).read_bytes()

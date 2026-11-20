@@ -6,8 +6,17 @@ import json
 import re
 from pathlib import Path
 import shutil
+import tarfile
 
 VERSION = re.compile(r'[0-9]{1,9}(?:\.[0-9]{1,9}){2,3}(?:-(?:(?:rc|RC)[1-9][0-9]{0,8}(?:-[0-9]+)?|[0-9]+))?')
+
+
+def check_module_headers(archive: Path) -> None:
+    with tarfile.open(archive, 'r:gz') as modules:
+        for member in modules:
+            if (member.type not in (tarfile.REGTYPE, tarfile.AREGTYPE)
+                    or member.pax_headers or member.offset_data != member.offset + 512):
+                raise ValueError('Unsupported runtime module tar header: ' + archive.name)
 
 
 def stage(source: Path, destination: Path) -> None:
@@ -38,6 +47,7 @@ def stage(source: Path, destination: Path) -> None:
             digest = hashlib.file_digest(stream, 'sha256').hexdigest()
         if not 0 < size <= 1024 * 1024 * 1024 or metadata.get('schema_version') != 1 or metadata.get('kernel_version') != version or metadata.get('archive') != archive.name or metadata.get('archive_bytes') != size or metadata.get('archive_sha256') != digest:
             raise ValueError('Module archive metadata mismatch: ' + version)
+        check_module_headers(archive)
         entries.append((archive, {'kernel_version': version, 'archive': archive.name, 'sha256': digest, 'bytes': size}))
     if not entries or len(entries) > 1000:
         raise ValueError('No module archives or too many archives')

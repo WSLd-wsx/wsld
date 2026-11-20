@@ -1,7 +1,9 @@
 import hashlib
 import importlib.util
+import io
 import json
 from pathlib import Path
+import tarfile
 import tempfile
 import unittest
 
@@ -30,7 +32,11 @@ class StageKernelAssetsTests(unittest.TestCase):
             source = root / 'source'
             source.mkdir()
             archive = source / 'modules_6.18.58.1-1.tar.gz'
-            archive.write_bytes(b'verified fixture')
+            payload = b'verified fixture'
+            member = tarfile.TarInfo('virtio-gpu.ko')
+            member.size = len(payload)
+            with tarfile.open(archive, 'w:gz', format=tarfile.USTAR_FORMAT) as out:
+                out.addfile(member, io.BytesIO(payload))
             metadata = {'schema_version': 1, 'kernel_version': '6.18.58.1-1', 'archive': archive.name,
                         'archive_bytes': archive.stat().st_size, 'archive_sha256': hashlib.sha256(archive.read_bytes()).hexdigest()}
             (source / 'modules_6.18.58.1-1-22-1.json').write_text(json.dumps(metadata))
@@ -41,6 +47,15 @@ class StageKernelAssetsTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'metadata mismatch'):
                 module.stage(source, root / 'rejected')
             self.assertFalse((root / 'rejected').exists())
+            member.mtime = 1795161600.25
+            with tarfile.open(archive, 'w:gz', format=tarfile.PAX_FORMAT) as out:
+                out.addfile(member, io.BytesIO(payload))
+            metadata.update(archive_bytes=archive.stat().st_size,
+                            archive_sha256=hashlib.sha256(archive.read_bytes()).hexdigest())
+            (source / 'modules_6.18.58.1-1-22-1.json').write_text(json.dumps(metadata))
+            with self.assertRaisesRegex(ValueError, 'Unsupported runtime module tar header'):
+                module.stage(source, root / 'pax-rejected')
+            self.assertFalse((root / 'pax-rejected').exists())
 
 
 if __name__ == '__main__':
