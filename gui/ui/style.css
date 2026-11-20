@@ -16,6 +16,43 @@
 #install-close,#close-upgrade{margin-left:auto}
 
 .community-edition .upgrade-command{background:#0c0c0c;color:#ccc;border-color:#555;font-family:Consolas,"Cascadia Mono",monospace}
+.community-edition {
+  --base: #0d1117;
+  --panel: #161e24;
+  --glow: #1b2d31;
+  --accent: #b6ecc1;
+  --ink: #15291b;
+  --line: #34443f;
+  --muted: #becbd5;
+  background: radial-gradient(ellipse at 80% 0%, var(--glow), transparent 44%), var(--base);
+}
+.community-edition :is(.topbar, .overview, .distro:not(.has-warning), .diagnostics section, dialog) {
+  border-color: var(--line);
+}
+.community-edition :is(.overview, .distro, .diagnostics section, dialog) {
+  background: var(--panel);
+}
+.community-edition :is(.brand-mark, .desktop-action, .add-distro) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.community-edition :is(.desktop-action, .add-distro):hover {
+  filter: brightness(1.12);
+}
+.community-edition :is(.eyebrow, h1 span, .text-button) {
+  color: var(--accent);
+}
+.community-edition :is(.intro p, .section-heading p, .distro-meta, dialog p) {
+  color: var(--muted);
+}
+.community-edition progress {
+  accent-color: var(--accent);
+}
+.community-edition :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
 .store-edition{background:radial-gradient(ellipse at 82% 0%,#1b2d31 0,transparent 40%),#0d1714}
 .edition-label{margin-left:12px;text-align:right;font-size:10px;letter-spacing:1.2px;font-weight:700;color:#8c9b9f}
 #environment-dialog .actions{justify-content:center}

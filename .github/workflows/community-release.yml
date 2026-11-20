@@ -94,6 +94,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Runtime archive rejected' }
           Move-Item -LiteralPath "$env:RUNNER_TEMP/wsx-runtime" -Destination "$env:RUNNER_TEMP/wsx-product-runtime"
       - name: Collect versioned kernel modules
+        id: kernel
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -110,6 +111,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Kernel module assets failed staging verification' }
           python wsld/scripts/collect-community-kernel-evidence.py "$env:RUNNER_TEMP/wsx-product-runtime/runtime/kernel-modules/index.json" $download "$env:RUNNER_TEMP/wsx-kernel-source-evidence.zip"
           if ($LASTEXITCODE -ne 0) { throw 'Kernel source evidence verification failed' }
+          "tag=$kernelTag" >> $env:GITHUB_OUTPUT
       - name: Restore Cargo registry cache
         id: registry-cache
         uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
@@ -128,6 +130,7 @@ jobs:
           RUNTIME_TAG: ${{ steps.runtime.outputs.tag }}
           RUNTIME_ASSET: ${{ steps.runtime.outputs.asset }}
           RUNTIME_SHA256: ${{ steps.runtime.outputs.sha256 }}
+          KERNEL_TAG: ${{ steps.kernel.outputs.tag }}
         run: |
           $root = "$env:RUNNER_TEMP/wsx-product-runtime"
           $evidence = "$env:RUNNER_TEMP/wsx-community-build"
@@ -135,6 +138,13 @@ jobs:
           & ./wsld/scripts/build-community-slice.ps1 -Evidence $evidence -RuntimePackage "$root/runtime" -RuntimeCatalog "$root/runtime-catalog.json" -GuestAdapterCatalog "$root/guest-adapter-catalog.json"
           & ./wsld/scripts/package-community-slice.ps1 -ExecutablePackage "$evidence/package" -RuntimePackage "$root/runtime" -GuiNotices "$evidence/gui-notices" -Output $package
           Copy-Item "$package/wsx-community-slice.zip" "$package/wsx-community-windows-x64.zip"
+          $zip = [IO.Compression.ZipFile]::OpenRead("$package/wsx-community-windows-x64.zip")
+          try {
+            $executables = @($zip.Entries | Where-Object { $_.FullName -match '^[^/]+\.exe$' } | ForEach-Object { $_.FullName } | Sort-Object)
+            if (($executables -join ',') -cne 'wsld.exe,wsldesk.exe,wsx.exe') {
+              throw "Unexpected community ZIP executables: $($executables -join ', ')"
+            }
+          } finally { $zip.Dispose() }
           $hash = (Get-FileHash "$package/wsx-community-windows-x64.zip" -Algorithm SHA256).Hash.ToLowerInvariant()
           Copy-Item "$env:RUNNER_TEMP/wsx-kernel-source-evidence.zip" "$package/kernel-source-evidence.zip"
           python wsld/scripts/assemble-community-materials.py --package "$package/wsx-community-windows-x64.zip" --runtime "$env:RUNNER_TEMP/wsx-runtime-download/$env:RUNTIME_ASSET" --kernel-evidence "$package/kernel-source-evidence.zip" --source wsld --output "$package/wsx-community-materials.zip"
@@ -145,7 +155,7 @@ jobs:
           [IO.File]::WriteAllText("$package/SHA256SUMS", "$hash  wsx-community-windows-x64.zip`n$materialsHash  wsx-community-materials.zip`n")
           python wsld/scripts/audit-community-package.py "$package/wsx-community-windows-x64.zip" "$package/community-audit.json" --kernel-evidence "$package/kernel-source-evidence.zip"
           if ($LASTEXITCODE -ne 0) { throw 'Community package evidence audit failed' }
-          "Source commit: $env:SOURCE_COMMIT`nRuntime: WSXdesk/wsx-host release $env:RUNTIME_TAG asset $env:RUNTIME_ASSET`nRuntime SHA-256: $env:RUNTIME_SHA256`nZIP SHA-256: $hash" | Set-Content "$package/build-provenance.txt"
+          "Source commit: $env:SOURCE_COMMIT`nRuntime: WSXdesk/wsx-host release $env:RUNTIME_TAG asset $env:RUNTIME_ASSET`nRuntime SHA-256: $env:RUNTIME_SHA256`nKernel modules: $env:KERNEL_TAG`nZIP SHA-256: $hash" | Set-Content "$package/build-provenance.txt"
       - name: Save Cargo registry cache
         if: ${{ steps.registry-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
