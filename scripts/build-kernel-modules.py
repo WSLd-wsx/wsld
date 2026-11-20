@@ -181,7 +181,7 @@ def build(kernel, output, compiler_prefix, jobs, kernel_image=None, kernel_notes
             if not source.is_file() or source.is_symlink():
                 raise ValueError('Expected module is missing: ' + name)
             module_output = result_dir / name
-            shutil.copyfile(source, module_output)
+            shutil.copy2(source, module_output)
             modules[name] = {'sha256': digest(module_output), 'bytes': module_output.stat().st_size}
     final_generation, inputs = generation(ROOT)
     if final_generation != build_generation:

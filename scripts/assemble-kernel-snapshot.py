@@ -71,7 +71,7 @@ def assemble(build_dir, audit_path, tag, destination):
     group = destination / 'groups' / ident
     group.mkdir(parents=True)
     for name in package.MODULES:
-        shutil.copyfile(build_dir / 'modules' / name, group / name)
+        shutil.copy2(build_dir / 'modules' / name, group / name)
     (destination / 'audits').mkdir()
     (destination / 'audits' / (audit_sha + '.json')).write_bytes(audit_bytes)
     (destination / 'builds').mkdir()

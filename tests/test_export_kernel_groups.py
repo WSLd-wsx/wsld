@@ -2,6 +2,7 @@ import importlib.util
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 import tarfile
@@ -30,6 +31,11 @@ class ExportTests(unittest.TestCase):
             create(root / 'one', 'linux-msft-wsl-6.18.58.1', schema=3, generation=identity)
             create(root / 'two', 'linux-msft-wsl-6.18.54.1', schema=3, generation=identity)
             package.merge(root / 'one', root / 'two', root / 'merged')
+            group = next((root / 'merged' / 'groups').iterdir())
+            module_times = {name: 1795161600 + offset
+                            for offset, name in enumerate(sorted(package.MODULES))}
+            for name, mtime in module_times.items():
+                os.utime(group / name, (mtime, mtime))
             first = module.export(root / 'merged', root / 'out1', input_archive)
             second = module.export(root / 'merged', root / 'out2', input_archive)
             self.assertEqual(first, second)
@@ -45,7 +51,7 @@ class ExportTests(unittest.TestCase):
             self.assertEqual(package.digest(root / 'out1' / (group + '.oci.json')),
                              first['groups'][group]['oci_manifest_sha256'])
             with tarfile.open(root / 'out1' / (group + '.tar.gz'), 'r:gz') as archive:
-                self.assertEqual(set(archive.getnames()), set(package.MODULES))
+                self.assertEqual({member.name: member.mtime for member in archive}, module_times)
             self.assertFalse(first['release_ready'])
 
             manifest = (root / 'out1' / (group + '.oci.json')).read_bytes()

@@ -46,7 +46,7 @@ def export(snapshot, kernel_exports, output):
             for name in sorted(package.MODULES):
                 path = snapshot / 'groups' / target['group'] / name
                 info = tar.gettarinfo(str(path), arcname=name)
-                info.uid = info.gid = info.mtime = 0
+                info.uid = info.gid = 0
                 info.uname = info.gname = ''
                 info.mode = 0o644
                 with path.open('rb') as source:

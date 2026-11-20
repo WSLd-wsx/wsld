@@ -138,7 +138,6 @@ def export(snapshot, output, build_inputs=None):
                     info = tar.gettarinfo(str(path), arcname=name)
                     info.uid = info.gid = 0
                     info.uname = info.gname = ''
-                    info.mtime = 0
                     info.mode = 0o644
                     with path.open('rb') as source:
                         tar.addfile(info, source)
