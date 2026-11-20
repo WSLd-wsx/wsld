@@ -4,7 +4,7 @@ use std::{env, process::ExitCode, sync::Arc};
 mod elevation;
 
 fn main() -> ExitCode {
-    let is_gui = env::current_exe().ok().and_then(|path| path.file_name().map(|name| name.to_string_lossy().eq_ignore_ascii_case("wsxdesk.exe"))).unwrap_or(false);
+    let is_gui = env::current_exe().ok().and_then(|path| path.file_name().map(|name| name.to_string_lossy().eq_ignore_ascii_case("wsldesk.exe"))).unwrap_or(false);
     let result = (|| -> Result<(), String> {
         let path = env::current_exe().map_err(|e| e.to_string())?;
         let name = path.file_name().and_then(|s| s.to_str()).unwrap_or("").to_ascii_lowercase();
@@ -25,7 +25,7 @@ fn main() -> ExitCode {
                     );
                 }
             }
-            "wsxdesk.exe" if args.is_empty() => {
+            "wsldesk.exe" if args.is_empty() => {
                 if let Some(code) = elevation::relaunch_if_needed(&path)? {
                     std::process::exit(code);
                 }
@@ -34,8 +34,8 @@ fn main() -> ExitCode {
         }
         match name.as_str() {
             "wsld.exe" | "wsx.exe" => wsx_host::execute_cli(&args),
-            "wsxdesk.exe" if args.is_empty() => wsx_community_slice::run_gui(Arc::new(wsx_community_slice::CommunityEdition)),
-            "wsxdesk.exe" => Err("GUI entry accepts no mode switches".into()),
+            "wsldesk.exe" if args.is_empty() => wsx_community_slice::run_gui(Arc::new(wsx_community_slice::CommunityEdition)),
+            "wsldesk.exe" => Err("GUI entry accepts no mode switches".into()),
             _ => Err("Unknown executable name".into()),
         }
     })();
