@@ -6,4 +6,4 @@ pub fn execute_cli(args: &[String]) -> Result<(), String> {
     cli::execute(args)
 }
 
-pub use cli::is_list_command;
+pub use cli::{is_list_command, requires_administrator};

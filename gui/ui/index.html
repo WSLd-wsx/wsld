@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>WSX Manager</title><link rel="stylesheet" href="style.css"><script defer src="app.js"></script></head>
 <body><main class="shell">
-  <header class="topbar"><div class="brand"><span class="brand-mark" aria-hidden="true">W</span><span>WSX <small>DESK · ALPHA 0.2.1</small></span></div><span id="edition-label" class="edition-label" aria-live="polite">CHECKING</span></header>
+  <header class="topbar"><div class="brand"><span class="brand-mark" aria-hidden="true">W</span><span>WSX <small id="product-version">DESK</small></span></div><span id="edition-label" class="edition-label" aria-live="polite">CHECKING</span></header>
   <section id="manager-home">
   <div class="intro"><div><div class="eyebrow">YOUR LINUX ENVIRONMENTS</div><h1>Distributions<span>.</span></h1><p>All your WSL distributions, in one place.</p></div><button id="refresh" class="refresh" type="button"><span aria-hidden="true">↻</span> Refresh</button></div>
   <div class="overview" aria-label="Distribution overview"><div><span id="total-count">—</span><small>ALL</small></div><div><span id="running-count">—</span><small>RUNNING</small></div><div><span id="desktop-count">—</span><small>WSX DESKTOPS</small></div><div class="install-cta"><button id="add-distro" class="add-distro" type="button"><span aria-hidden="true">+</span> Install desktop</button></div></div>
@@ -20,5 +20,5 @@
     <pre id="stop-command" class="upgrade-command"></pre>
     <div class="actions"><button id="stop-close" type="button">Close</button></div>
   </dialog>
-  <footer><span class="footer-dot"></span> Community Core: BSL 1.1 <span>WSX MANAGER</span></footer>
+  <footer><span id="edition-footer" hidden><span class="footer-dot" aria-hidden="true"></span><span id="edition-footer-text"></span></span><span>WSX MANAGER</span></footer>
 </main><div id="launch-message" class="toast" role="status" aria-live="polite" hidden></div></body></html>

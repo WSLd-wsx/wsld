@@ -298,10 +298,47 @@ fn identity_executable() -> Result<PathBuf, String> {
     crate::candidate::reject_reparse(&executable)?;
     let size = fs::metadata(&current).map_err(|e| e.to_string())?.len();
     let target_size = fs::metadata(&executable).map_err(|e| format!("Cannot locate WSX CLI: {e}"))?.len();
+    if size != 0 && target_size != 0 && is_installed_store_entry(&current)? {
+        return Ok(executable);
+    }
     if size == 0 || size != target_size || crate::catalog::hash_file(&current, size)? != crate::catalog::hash_file(&executable, size)? {
         return Err("WSX CLI differs from the running product executable".into());
     }
     Ok(executable)
+}
+
+fn is_installed_store_entry(current: &Path) -> Result<bool, String> {
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GetCurrentPackageFamilyName(length: *mut u32, name: *mut u16) -> i32;
+        fn GetCurrentPackagePath(length: *mut u32, path: *mut u16) -> i32;
+    }
+    if !current.file_name().and_then(|name| name.to_str())
+        .is_some_and(|name| ["wsxdesk.exe", "wsx-elevated.exe"].iter().any(|entry| name.eq_ignore_ascii_case(entry)))
+    {
+        return Ok(false);
+    }
+    let mut family = [0u16; 128];
+    let mut length = family.len() as u32;
+    match unsafe { GetCurrentPackageFamilyName(&mut length, family.as_mut_ptr()) } {
+        15700 => return Ok(false), // APPMODEL_ERROR_NO_PACKAGE
+        0 if (2..=family.len()).contains(&(length as usize)) => {}
+        code => return Err(format!("Cannot read package family: {code}")),
+    }
+    if !String::from_utf16_lossy(&family[..length as usize - 1])
+        .eq_ignore_ascii_case("WGY.WSXDesk_xhp78k3e5dtzg")
+    {
+        return Ok(false);
+    }
+    let mut package = vec![0u16; 32768];
+    let mut length = package.len() as u32;
+    let result = unsafe { GetCurrentPackagePath(&mut length, package.as_mut_ptr()) };
+    if result != 0 || !(2..=package.len()).contains(&(length as usize)) {
+        return Err(format!("Cannot read the WSX Store package path: {result}"));
+    }
+    let package = PathBuf::from(String::from_utf16_lossy(&package[..length as usize - 1]));
+    let directory = current.parent().ok_or("Cannot locate the WSX package directory")?;
+    Ok(package.as_os_str().to_string_lossy().eq_ignore_ascii_case(&directory.as_os_str().to_string_lossy()))
 }
 
 fn require_dynamic_rendering(adapter: &Value) -> Result<(), String> {
@@ -440,9 +477,16 @@ fn guest_path(reg: &str, path: &Path, dir: &Path) -> Result<String, String> {
     c.args(["/usr/bin/wslpath", "-u"]).arg(path);
     captured(c, dir, "path", None, 20)
 }
+const DISTRO_INIT_MOUNT: [&str; 5] = ["/usr/bin/nsenter", "--target", "1", "--mount", "--"];
+
 fn guest_control(reg: &str, dir: &Path, request: Value) -> Result<Value, String> {
     let script = guest_path(reg, &dir.join("desktop-control.py"), dir)?;
     let mut c = wsl(reg)?;
+    if request["action"] == "prepare" {
+        // WSL exec may use a separate mount namespace. Device views and their
+        // /run state must be created where the distro's systemd can see them.
+        c.args(DISTRO_INIT_MOUNT);
+    }
     c.args(["/usr/bin/python3", "-I", &script]);
     serde_json::from_str(&captured(
         c,
@@ -1201,6 +1245,13 @@ fn start_inner(
     if preflight["modules"]["reload_required"] == true && !allow_reload {
         return Err(format!("Retired Owner requires explicit --reload-retired-owner; no module or active pointer changed. Review {}",dir.join("restart-plan.json").display()));
     }
+    // Establish WSL's system-distro exec path before creating an Owner with a
+    // short retirement-helper handshake deadline. A cold system exec can stall
+    // even after the user distribution is accepting commands.
+    let mut system_guest = Command::new(system("wsl.exe")?);
+    system_guest.args(["--system", "--user", "root", "--cd", "/", "--exec", "/bin/true"]);
+    captured(system_guest, dir, "system-guest-preflight", None, 60)?;
+
     // Preserve the old receipt and publish the successor before any side effect.
     // A crash after this point cannot silently reuse the old retired lifetime.
     if !previous.is_null() {
@@ -1301,12 +1352,14 @@ fn start_inner(
         &serde_json::to_vec_pretty(&prepared).map_err(|e| e.to_string())?,
     )?;
 
-    let session_args: Vec<&str> = if use_v2 {
-        vec!["-d",reg,"-u","root","--cd","/","--exec","/usr/bin/python3","-I",
-             "/usr/lib/wsx/bootstrap-v2.py","dispatch","start","--instance",instance.trim_matches(['{','}'])]
+    let mut session_args = vec!["-d", reg, "-u", "root", "--cd", "/", "--exec"];
+    session_args.extend(DISTRO_INIT_MOUNT);
+    if use_v2 {
+        session_args.extend(["/usr/bin/python3", "-I", "/usr/lib/wsx/bootstrap-v2.py", "dispatch"]);
     } else {
-        vec!["-d",reg,"-u","root","--cd","/","--exec","/usr/bin/wsx-guest","start","--instance",instance.trim_matches(['{','}'])]
-    };
+        session_args.push("/usr/bin/wsx-guest");
+    }
+    session_args.extend(["start", "--instance", instance.trim_matches(['{', '}'])]);
 
     let (mut session, session_created) = crate::platform::process::spawn_session(
         &system("wsl.exe")?,

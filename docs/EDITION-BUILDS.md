@@ -21,7 +21,16 @@ reserve their versions, including tags created for drafts. Promote a draft to
 a pre-release and then to a stable release by editing the same GitHub Release.
 
 The Store counterpart is `wsx-pro/scripts/build-store-slice.ps1`; it checks the
-same runtime closure and builds the private Store executable. The existing
+same runtime closure and builds the private Store executable. The compiled
+edition selects the interface. Test entitlement, purchases and updates with
+the actual Store package identity and the intended Microsoft Store account.
+The Store GUI and privileged CLI commands request elevation through UAC.
+The handoff verifies the elevated token, the WSX package family and the
+originating Windows user before opening the GUI or running Core operations.
+Read-only CLI commands run in the current terminal. A CLI handoff waits for
+the elevated operation and returns its exit code. The Store submission must
+obtain approval for the package's `allowElevation` capability.
+
 `build-store-package.ps1` accepts `-LinkedPackage` for the new PE, the matching
 runtime as `-CorePackage`, and the collected notice directory as `-ProNotices`.
 It produces an unsigned MSIX. Store signing, account entitlement, purchase,
