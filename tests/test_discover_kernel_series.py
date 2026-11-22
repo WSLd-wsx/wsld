@@ -8,6 +8,19 @@ spec = importlib.util.spec_from_file_location('discover_kernel_series', path)
 module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
 
 class DiscoveryTests(unittest.TestCase):
+    def test_only_latest_stable_source_with_an_exact_feed_package_is_prebuilt(self):
+        release = {'tag_name': 'linux-msft-wsl-6.18.54.1', 'draft': False, 'prerelease': False}
+        feed = {'versions': ['6.18.40.1-1', '6.18.54.1-1', '6.18.54.1-2']}
+        targets = [{'version': '6.18.40.1-1'}]
+        self.assertEqual(module.early_target(release, feed, targets),
+                         {'tag': release['tag_name'], 'version': '6.18.54.1-2', 'referenced': False})
+        self.assertTrue(module.early_target(release, feed, targets + [{'version': '6.18.54.1-2'}])['referenced'])
+        self.assertIsNone(module.early_target(release, {'versions': ['6.18.40.1-1']}, targets))
+        self.assertIsNone(module.early_target(release, feed, [{'version': '6.18.58.1-1'}]))
+        self.assertIsNone(module.early_target(dict(release, tag_name=release['tag_name']+'-rc1'), feed, targets))
+        with self.assertRaisesRegex(ValueError, 'not stable'):
+            module.early_target(dict(release, prerelease=True), feed, targets)
+
     def test_wsl_versions_include_preview_deduplicate_and_skip_existing(self):
         releases = [{'tag_name':'3.0.2','draft':False,'prerelease':True},
                     {'tag_name':'3.0.3','draft':False,'prerelease':False},

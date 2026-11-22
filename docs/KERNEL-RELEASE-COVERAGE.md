@@ -114,6 +114,21 @@ preview WSL releases from 3.0.3 onward and produces versioned GitHub Release
 assets. Its builds retain source and verification evidence; they do not by
 themselves establish runtime acceptance or complete corresponding source.
 
+The workflow also checks the latest stable release of `microsoft/WSL2-Linux-Kernel`
+and Microsoft's WSL kernel package index. It prebuilds the newest exact package
+for that source release if it is newer than the kernels referenced by released
+WSL. An RC tag, a prerelease, or a source release without a matching package
+does not trigger this path. The prebuild runs the normal static module CRC
+verification and saves the build workspace in the Actions cache.
+
+The release target list still comes from official WSL releases. A cached build
+can be reused when that list includes the same full kernel package version.
+The release build fetches the exact package again and checks its SHA-256,
+the upstream source commit and the build generation before reusing the
+workspace. It still runs the normal snapshot and release evidence checks.
+The cache follows the newest stable source and may expire or be evicted.
+A cache miss or identity mismatch uses the regular build path.
+
 The following observations concern a historical diagnostic run and not the
 current release workflow:
 The retained `artifacts/runner-draft-43046940732/crc-comparison.json` records

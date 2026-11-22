@@ -17,6 +17,7 @@ spec = importlib.util.spec_from_file_location('wsl_preview', ROOT / 'wsl-preview
 preview = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(preview)
 WSL_VERSION = re.compile(r'([0-9]+)\.([0-9]+)\.([0-9]+)(?:\.([0-9]+))?(?:-(?:rc|preview)[0-9]+)?\Z', re.I)
+SOURCE = re.compile(r'linux-msft-wsl-([0-9]+(?:\.[0-9]+){3})\Z')
 KERNEL = re.compile(r'([0-9]+(?:\.[0-9]+){3})-([0-9]+)\Z')
 SHA = re.compile(r'[0-9a-f]{40}\Z')
 
@@ -59,6 +60,35 @@ def plan(releases, kernel_by_wsl, index, assets):
     return sorted(found.values(), key=lambda e: tuple(int(v) for v in re.split(r'[.-]', e['version'])), reverse=True)
 
 
+def early_target(release, index, targets):
+    """Pick the latest official stable source with a listed exact package."""
+    if release.get('draft') is not False or release.get('prerelease') is not False:
+        raise ValueError('Latest official kernel release is not stable')
+    match = SOURCE.fullmatch(release.get('tag_name', ''))
+    if not match:
+        return None
+    candidates = [version for version in index['versions']
+                  if (item := KERNEL.fullmatch(version)) and item.group(1) == match.group(1)]
+    version_key = lambda value: tuple(map(int, re.split(r'[.-]', value)))
+    if not candidates:
+        return None
+    version = max(candidates, key=version_key)
+    if version_key(version) < max(version_key(item['version']) for item in targets):
+        return None
+    referenced = any(item['version'] == version for item in targets)
+    return {'tag': release['tag_name'], 'version': version, 'referenced': referenced}
+
+
+def published_releases(repository):
+    releases = []
+    for page in range(1, 101):
+        batch = gh_json(f'repos/{repository}/releases?per_page=100&page={page}')
+        if not isinstance(batch, list): raise ValueError('Invalid release inventory')
+        releases.extend(batch)
+        if len(batch) < 100: return releases
+    raise ValueError('Release inventory exceeds page limit')
+
+
 def gh_json(endpoint):
     return json.loads(subprocess.check_output(['gh', 'api', endpoint], text=True))
 
@@ -83,14 +113,14 @@ def published_release_assets(repository):
         raise
 
 
-def tag_commit(tag):
-    obj = gh_json('repos/microsoft/WSL/git/ref/tags/' + tag)['object']
+def tag_commit(tag, repository='microsoft/WSL'):
+    obj = gh_json(f'repos/{repository}/git/ref/tags/' + tag)['object']
     for _ in range(4):
         sha = obj.get('sha', '')
         if not SHA.fullmatch(sha): raise ValueError('Invalid WSL tag identity')
         if obj.get('type') == 'commit': return sha
         if obj.get('type') != 'tag': raise ValueError('Unsupported WSL tag object')
-        obj = gh_json('repos/microsoft/WSL/git/tags/' + sha)['object']
+        obj = gh_json(f'repos/{repository}/git/tags/' + sha)['object']
     raise ValueError('Excessive nested WSL tag objects')
 
 
@@ -105,13 +135,7 @@ def wsl_kernel(tag):
 
 def main():
     repository = sys.argv[1]
-    releases = []
-    for page in range(1, 101):
-        batch = gh_json(f'repos/microsoft/WSL/releases?per_page=100&page={page}')
-        if not isinstance(batch, list): raise ValueError('Invalid WSL releases page')
-        releases.extend(batch)
-        if len(batch) < 100: break
-    else: raise ValueError('WSL release inventory exceeds page limit')
+    releases = published_releases('microsoft/WSL')
     kernels = {item['tag']: wsl_kernel(item['tag']) for item in selected_releases(releases)}
     assets = published_release_assets(repository)
     spec = importlib.util.spec_from_file_location('feed', ROOT / 'wsl-kernel-feed.py')
@@ -119,6 +143,19 @@ def main():
     with urlopen(Request(feed.BASE + '/index.json', headers={'User-Agent':'WSX-kernel-builder'}), timeout=60) as response:
         raw = response.read(1024 * 1024 + 1)
     if len(raw) > 1024 * 1024: raise ValueError('Microsoft kernel package index is too large')
-    print(json.dumps(plan(releases, kernels, json.loads(raw), assets), sort_keys=True))
+    index = json.loads(raw)
+    targets = plan(releases, kernels, index, assets)
+    if len(sys.argv) == 3:
+        try:
+            latest = gh_json('repos/microsoft/WSL2-Linux-Kernel/releases/latest')
+            candidate = early_target(latest, index, targets)
+            if candidate:
+                candidate['commit'] = tag_commit(candidate['tag'], 'microsoft/WSL2-Linux-Kernel')
+        except (subprocess.CalledProcessError, ValueError, KeyError, TypeError) as error:
+            print(f'Kernel prebuild discovery unavailable: {error}', file=sys.stderr)
+            candidate = None
+        with Path(sys.argv[2]).open('x', encoding='utf-8') as output:
+            json.dump(candidate, output, sort_keys=True)
+    print(json.dumps(targets, sort_keys=True))
 
 if __name__ == '__main__': main()

@@ -57,6 +57,40 @@ def target_input(root, tag):
     return value, path
 
 
+def restore_prebuilt(candidate, workspace, tag, commit, package, generation):
+    if candidate is None:
+        return False
+    try:
+        record = json.loads((candidate / 'receipt.json').read_text())
+        source = candidate / 'workspace'
+        build = json.loads((source / 'modules-build/build-result.json').read_text())
+        inspection = json.loads((source / 'target-inspection/inspection.json').read_text())
+        expected = {'tag': tag, 'target_source_commit': commit,
+                    'package_version': package['version'], 'package_sha256': package['sha256'],
+                    'build_generation': generation}
+        if (record != expected or build['kernel_source_commit'] != commit
+                or build['build_generation'] != generation
+                or inspection['package_version'] != package['version']
+                or inspection['package_sha256'] != package['sha256']
+                or not source.is_dir() or source.is_symlink()
+                or any(path.is_symlink() or not (path.is_file() or path.is_dir())
+                       for path in source.rglob('*'))):
+            return False
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+    shutil.copytree(source, workspace)
+    return True
+
+
+def save_prebuilt(candidate, workspace, tag, commit, package, generation):
+    candidate.mkdir()
+    shutil.copytree(workspace, candidate / 'workspace')
+    (candidate / 'receipt.json').write_text(json.dumps({
+        'tag': tag, 'target_source_commit': commit, 'package_version': package['version'],
+        'package_sha256': package['sha256'], 'build_generation': generation,
+    }, sort_keys=True) + '\n')
+
+
 def build(tag, commit, root):
     if re.fullmatch(r'linux-msft-wsl-[0-9]+(?:\.[0-9]+){2,3}-rc[1-9][0-9]*', tag):
         raise ValueError('RC target discovered, but its exact Microsoft kernel package mapping is not implemented: ' + tag)
@@ -123,11 +157,17 @@ def build(tag, commit, root):
         if prior_snapshot.is_symlink() or not prior_snapshot.is_dir():
             raise ValueError('Unsafe temporary snapshot directory')
         shutil.rmtree(prior_snapshot)
-    command = ['bash', str(ROOT / 'scripts/build-target-kernel-modules.sh'), tag, commit,
-               str(package), value['sha256'], value['version'], str(workspace), str(cache)]
-    result = subprocess.run(command, check=False)
-    if result.returncode:
-        raise ValueError(f'Target build failed with exit code {result.returncode}; evidence retained at {attempt}')
+    candidate_path = os.environ.get('WSX_KERNEL_PREBUILT_WORKSPACE')
+    reused = restore_prebuilt(Path(candidate_path) if candidate_path else None, workspace,
+                              tag, commit, value, current_generation)
+    if reused:
+        print(f'Reusing prebuilt workspace for {value["version"]}', flush=True)
+    else:
+        command = ['bash', str(ROOT / 'scripts/build-target-kernel-modules.sh'), tag, commit,
+                   str(package), value['sha256'], value['version'], str(workspace), str(cache)]
+        result = subprocess.run(command, check=False)
+        if result.returncode:
+            raise ValueError(f'Target build failed with exit code {result.returncode}; evidence retained at {attempt}')
     # The build driver records the CRC audit before cleaning its source tree.
     # Revalidate that same evidence instead of running a second, post-cleanup
     # scan which could fail after the diagnostic intermediates were removed.
@@ -144,13 +184,16 @@ def build(tag, commit, root):
     snapshot = assembler.assemble(workspace / 'modules-build', workspace / 'static-crc-audit.json',
                                   tag, attempt / 'snapshot')
     merged = snapshots.merge_candidate(root, attempt / 'snapshot')
+    save_path = os.environ.get('WSX_KERNEL_SAVE_PREBUILT_WORKSPACE')
+    if save_path:
+        save_prebuilt(Path(save_path), workspace, tag, commit, value, current_generation)
     report = {'schema_version': 1, 'tag': tag, 'target_source_commit': commit,
               'package_version': value['version'], 'package_sha256': value['sha256'],
               'attempt': str(attempt.relative_to(root)), 'static_crc_match': True,
               'snapshot_group': snapshot['group'],
               'staging_snapshot_sha256': merged['sha256'],
               'reuse_prescreen_candidates': prescreen['candidates'] if prescreen else [],
-              'reuse_decision': 'built_without_proven_reuse',
+              'reuse_decision': 'verified_prebuilt_workspace' if reused else 'built_without_proven_reuse',
               'source_correspondence_verified': False, 'runtime_admitted': False,
               'release_ready': False}
     with (attempt / 'diagnostic-result.json').open('x', encoding='utf-8') as output:
