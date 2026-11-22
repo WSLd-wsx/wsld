@@ -4,6 +4,8 @@ use wsx_gui_contract::{Backend, Community, Edition, ProAccess};
 
 #[cfg(windows)]
 mod store_transition;
+#[cfg(windows)]
+pub mod elevation;
 
 #[cfg(windows)]
 pub fn report_gui_error(message: &str) {
@@ -104,18 +106,20 @@ mod tests {
 #[derive(serde::Serialize)]
 struct StoreEnvironment {
     edition: &'static str,
+    version: String,
     packaged: bool,
     installed: Option<bool>,
     warning: Option<String>,
 }
 
 #[tauri::command]
-async fn store_environment(state: tauri::State<'_, GuiState>) -> Result<StoreEnvironment, String> {
+async fn store_environment(app: tauri::AppHandle, state: tauri::State<'_, GuiState>) -> Result<StoreEnvironment, String> {
     let backend = state.backend.clone(); let lease = state.gate.enter()?;
+    let version = app.package_info().version.to_string();
     tauri::async_runtime::spawn_blocking(move || {
         let _lease = lease;
         let edition = match backend.edition() { Edition::Community => "community", Edition::Store => "store" };
-        Ok(StoreEnvironment { edition, packaged: backend.packaged()?, installed: backend.store_installed()?, warning: None })
+        Ok(StoreEnvironment { edition, version, packaged: backend.packaged()?, installed: backend.store_installed()?, warning: None })
     }).await.map_err(|e| format!("Store environment worker failed: {e}"))?
 }
 
@@ -229,7 +233,7 @@ async fn online_releases(state: tauri::State<'_, GuiState>) -> Result<String, St
 }
 
 #[cfg(windows)]
-pub fn run_gui(backend: Arc<dyn Backend>) -> Result<(), String> {
+pub fn run_gui(backend: Arc<dyn Backend>, edition_version: Option<String>) -> Result<(), String> {
     use std::sync::atomic::{AtomicBool, Ordering};
     static USED: AtomicBool = AtomicBool::new(false);
     if USED.swap(true, Ordering::AcqRel) { return Err("Only one GUI loop is supported".into()); }
@@ -248,6 +252,11 @@ pub fn run_gui(backend: Arc<dyn Backend>) -> Result<(), String> {
     if !data.is_absolute() { return Err("WebView data path must be absolute".into()); }
     let gate = Arc::new(Gate::default());
     let close_gate = gate.clone();
+    let mut context = tauri::generate_context!();
+    if let Some(version) = edition_version {
+        context.package_info_mut().version = version.parse()
+            .map_err(|error| format!("Invalid edition version: {error}"))?;
+    }
     let app = tauri::Builder::default()
         .manage(GuiState { backend, gate: gate.clone() })
         .invoke_handler(tauri::generate_handler![probe_note, probe_close, store_environment,
@@ -270,7 +279,7 @@ pub fn run_gui(backend: Arc<dyn Backend>) -> Result<(), String> {
                 if let Err(error) = close_gate.close() { eprintln!("GUI close failed: {error}"); }
             }
         })
-        .build(tauri::generate_context!()).map_err(|e| format!("Tauri build failed: {e}"))?;
+        .build(context).map_err(|e| format!("Tauri build failed: {e}"))?;
     let result = app.run_return(|_, _| {});
     gate.close()?;
     gate.drain()?;

@@ -111,7 +111,7 @@ let toastTimer = null;
 let currentSnapshot = null;
 let licensed = false;
 let licenseKnown = false;
-let isPortable = false;
+let isCommunity = false;
 let currentCommand = null;
 let installedGuid = null;
 let installPending = false;
@@ -232,7 +232,7 @@ function shellCommand(program, name, option = '-d') {
 function desktopCommand(name) { return shellCommand('wsld.exe', name); }
 function showUpgrade(name) {
   currentCommand = desktopCommand(name);
-  $('upgrade-description').textContent = isPortable ? 'Get the Store version to use Pro desktop features.' : 'Upgrade to Pro to launch your desktop with one click.';
+  $('upgrade-description').textContent = isCommunity ? 'Get the Store version to use Pro desktop features.' : 'Upgrade to Pro to launch your desktop with one click.';
   $('upgrade-instruction').textContent = needsPowerShell(name) ? 'Or use the command line in PowerShell:' : 'Or use the command line:';
   $('upgrade-command').textContent = currentCommand || 'Run wsld.exe -d with the distro name as a quoted argument.';
   $('copy-command').disabled = !currentCommand;
@@ -256,7 +256,10 @@ async function launch(row, desktop, identity) {
     showToast(desktop ? `Desktop request completed for ${row.registration}.` : `Terminal requested for ${row.registration}.`);
   } catch (error) {
     const detail = String(error);
-    if (desktop && detail.includes('WSX Pro license required')) { licensed = false; showUpgrade(row.registration); }
+    if (desktop && detail.includes('WSX Pro license required')) {
+      licensed = false;
+      showUpgrade(row.registration);
+    }
     else {
       launchErrors.set(identity, detail.includes('Concurrent desktops require PCI Owner configuration ABI 2') ? 'Incompatible with running WSX desktops.' : `Could not open: ${detail}`);
       showToast(`Could not open ${row.registration}. See the message on its card.`, true);
@@ -277,7 +280,7 @@ function showStopCommand(name) {
 }
 async function stopDistribution(row, identity) {
   if (!row.wsl_running || stopping.has(identity)) return;
-  if (isPortable || !licensed) {
+  if (isCommunity || !licensed) {
     showStopCommand(row.registration);
     return;
   }
@@ -344,14 +347,16 @@ async function checkEntitlement() {
   checkingLicense = true;
   try {
     const environment = await environmentReady;
-    isPortable = !environment.packaged;
-    const communityEdition = environment.edition ? environment.edition === 'community' : isPortable;
-    document.body.classList.toggle('community-edition', communityEdition);
-    document.body.classList.toggle('store-edition', !communityEdition);
-    $('edition-label').textContent = communityEdition ? 'Community Edition' : 'MS Store Edition';
-    $('store-buy').textContent = isPortable ? 'Get Store version' : 'Upgrade to Pro';
-    $('portable-store-note').hidden = !isPortable;
-    if (isPortable) {
+    isCommunity = environment.edition === 'community';
+    $('edition-footer-text').textContent = isCommunity ? 'Community Core: BSL 1.1' : 'wsxdesk.com';
+    $('edition-footer').hidden = false;
+    $('product-version').textContent = `DESK · ${environment.version}`;
+    document.body.classList.toggle('community-edition', isCommunity);
+    document.body.classList.toggle('store-edition', !isCommunity);
+    $('edition-label').textContent = isCommunity ? 'Community Edition' : 'MS Store Edition';
+    $('store-buy').textContent = isCommunity ? 'Get Store version' : 'Upgrade to Pro';
+    $('portable-store-note').hidden = !isCommunity;
+    if (isCommunity) {
       licensed = false; licenseKnown = true;
       $('store-status').textContent = 'Portable free edition · Pro is available in Microsoft Store';
       $('store-restore').hidden = true; $('store-upgrade').textContent = 'Get Store version'; $('store-upgrade').hidden = false;
@@ -378,34 +383,45 @@ async function checkEntitlement() {
   }
 }
 $('store-restore').addEventListener('click', checkEntitlement);
-$('store-upgrade').addEventListener('click', async () => {
-  if (isPortable) {
-    const button = $('store-upgrade');
-    button.disabled = true;
-    try {
-      await invoke('store_open_listing');
-    } catch (error) {
-      showToast(`Unable to open Microsoft Store: ${error}`, true);
-    } finally {
-      button.disabled = false;
-    }
-    return;
+async function purchasePro(environment) {
+  if (!environment.packaged) throw new Error('Start the installed Microsoft Store package to purchase Pro.');
+  await invoke('store_purchase');
+  await checkEntitlement();
+}
+let requestingPro = false;
+async function requestStorePro(reportError = message => showToast(message, true)) {
+  if (requestingPro) return;
+  requestingPro = true;
+  try {
+    await purchasePro(await environmentReady);
+  } catch (error) {
+    reportError(`Purchase unavailable: ${error}`);
+  } finally {
+    requestingPro = false;
   }
-  currentCommand = 'wsld.exe -l -o';
-  $('upgrade-description').textContent = 'Upgrade to Pro for one-click WSX desktop installation and launch.';
-  $('upgrade-instruction').textContent = 'Or list releases and install with the free command line:';
-  $('upgrade-command').textContent = currentCommand;
-  $('copy-command').disabled = false; $('upgrade-status').textContent = '';
-  $('upgrade-dialog').showModal();
+}
+$('store-upgrade').addEventListener('click', async () => {
+  const button = $('store-upgrade');
+  button.disabled = true;
+  try {
+    const environment = await environmentReady;
+    if (environment.edition === 'community') await invoke('store_open_listing');
+    else await requestStorePro();
+  } catch (error) {
+    showToast(isCommunity ? `Unable to open Microsoft Store: ${error}` : `Purchase unavailable: ${error}`, true);
+  } finally {
+    button.disabled = false;
+  }
 });
 $('store-buy').addEventListener('click', async () => {
   $('store-buy').disabled = true;
+  $('upgrade-status').textContent = '';
   try {
     const environment = await environmentReady;
-    if (!environment.packaged) await beginStoreHandoff();
-    else { await invoke('store_purchase'); await checkEntitlement(); }
+    if (environment.edition === 'community') await beginStoreHandoff();
+    else await requestStorePro(message => { $('upgrade-status').textContent = message; });
   }
-  catch (error) { $('upgrade-status').textContent = isPortable ? `Unable to open the Store version: ${error}` : `Purchase unavailable: ${error}`; }
+  catch (error) { $('upgrade-status').textContent = isCommunity ? `Unable to open the Store version: ${error}` : `Purchase unavailable: ${error}`; }
   finally { $('store-buy').disabled = false; }
 });
 $('close-upgrade').addEventListener('click', () => $('upgrade-dialog').close());
@@ -459,9 +475,11 @@ async function checkUpdates() {
   checkingUpdates = true; $('update-check').disabled = true;
   try {
     const environment = await environmentReady;
-    if (!environment.packaged) {
+    if (environment.edition === 'community' || !environment.packaged) {
       $('update-button').hidden = true; $('update-check').hidden = true;
-      $('update-status').textContent = 'Portable edition: update by downloading a newer ZIP.';
+      $('update-status').textContent = environment.edition === 'community'
+        ? 'Community Edition: update by downloading a newer ZIP.'
+        : 'Start the installed Microsoft Store package to check for updates.';
       return;
     }
     const available = await invoke('store_check_updates');
@@ -492,7 +510,7 @@ $('add-distro').addEventListener('click', async () => {
   if (!licenseKnown) { showToast('Pro access is not confirmed. Use Check Pro access and try again.', true); return; }
   if (!licensed) {
     currentCommand = 'wsld.exe -l -o';
-    $('upgrade-description').textContent = isPortable ? 'Get the Store version for one-click WSX distro installation.' : 'Upgrade to Pro to install a WSX distro with one click.';
+    $('upgrade-description').textContent = isCommunity ? 'Get the Store version for one-click WSX distro installation.' : 'Upgrade to Pro to install a WSX distro with one click.';
     $('upgrade-instruction').textContent = 'Or list releases with the command below, then run wsld.exe --install ID[-VERSION]:';
     $('upgrade-command').textContent = currentCommand;
     $('copy-command').disabled = false; $('upgrade-status').textContent = '';

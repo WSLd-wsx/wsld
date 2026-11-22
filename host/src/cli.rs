@@ -1,4 +1,22 @@
 use std::{thread, time::Duration};
+
+pub fn requires_administrator(args: &[String]) -> Result<bool, String> {
+    use wsx_core::desktop::distro::{parse, Command};
+    match args.first().map(String::as_str) {
+        Some("--install") => Ok(!parse_install(&args[1..])?.2),
+        Some("-t" | "--terminate") => Ok(args.len() == 2),
+        Some("-d" | "--distribution") if args.len() == 1 => Ok(true),
+        Some("-d" | "--distribution") => {
+            let (_, command) = parse(args)?;
+            Ok(matches!(command, Command::Launch | Command::Fit | Command::Stop | Command::Terminate | Command::Start { check: false, .. }))
+        }
+        Some("candidate") => Ok(args.get(1).is_some_and(|operation| {
+            matches!(operation.as_str(), "import-test" | "desktop-start" | "desktop-retry" | "desktop-stop")
+        })),
+        _ => Ok(false),
+    }
+}
+
 pub fn execute(args: &[String]) -> Result<(), String> {
     if let [flag, kind] = args {
         if flag == "--internal-graphics-identity" {
@@ -245,6 +263,24 @@ fn parse_install(args: &[String]) -> Result<(&str, wsx_core::release::Channel, b
 mod tests {
     use super::*;
     use wsx_core::release::Channel;
+
+    #[test]
+    fn store_elevation_is_required_only_for_privileged_commands() {
+        for (arguments, expected) in [
+            (&["--help"][..], false),
+            (&["--check-environment"][..], false),
+            (&["-l", "-o"][..], false),
+            (&["--install", "WSX-omarchy", "--check"][..], false),
+            (&["--install", "WSX-omarchy", "--no-launch"][..], true),
+            (&["-d", "WSX-omarchy-4.0.6-r4", "desktop", "status"][..], false),
+            (&["-d", "WSX-omarchy-4.0.6-r4", "desktop", "fit"][..], true),
+            (&["-d", "WSX-omarchy-4.0.6-r4"][..], true),
+            (&["--terminate", "WSX-omarchy-4.0.6-r4"][..], true),
+        ] {
+            let args = arguments.iter().map(|arg| (*arg).to_owned()).collect::<Vec<_>>();
+            assert_eq!(requires_administrator(&args), Ok(expected), "{arguments:?}");
+        }
+    }
 
     #[test]
     fn internal_graphics_identity_rejects_unknown_kind() {

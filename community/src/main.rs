@@ -1,7 +1,7 @@
 //! Community edition integration slice: one binary, three executable names.
 use std::{env, process::ExitCode, sync::Arc};
 #[cfg(windows)]
-mod elevation;
+use wsx_community_slice::elevation;
 
 fn main() -> ExitCode {
     let is_gui = env::current_exe().ok().and_then(|path| path.file_name().map(|name| name.to_string_lossy().eq_ignore_ascii_case("wsldesk.exe"))).unwrap_or(false);
@@ -34,7 +34,7 @@ fn main() -> ExitCode {
         }
         match name.as_str() {
             "wsld.exe" | "wsx.exe" => wsx_host::execute_cli(&args),
-            "wsldesk.exe" if args.is_empty() => wsx_community_slice::run_gui(Arc::new(wsx_community_slice::CommunityEdition)),
+            "wsldesk.exe" if args.is_empty() => wsx_community_slice::run_gui(Arc::new(wsx_community_slice::CommunityEdition), None),
             "wsldesk.exe" => Err("GUI entry accepts no mode switches".into()),
             _ => Err("Unknown executable name".into()),
         }

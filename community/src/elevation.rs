@@ -1,9 +1,9 @@
-use std::{env, ffi::OsStr, mem::size_of, os::windows::ffi::OsStrExt, path::Path};
+use std::{env, ffi::{OsStr, OsString}, mem::size_of, os::windows::ffi::OsStrExt, path::Path};
 use windows::{
     core::{w, PCWSTR},
     Win32::{
         Foundation::{CloseHandle, ERROR_CANCELLED, HANDLE, WAIT_OBJECT_0},
-        Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY},
+        Security::{GetLengthSid, GetTokenInformation, TokenElevation, TokenUser, TOKEN_ELEVATION, TOKEN_QUERY, TOKEN_USER},
         System::{
             Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE},
             Threading::{
@@ -25,10 +25,18 @@ impl Drop for OwnedHandle {
     }
 }
 
-pub fn is_elevated() -> windows::core::Result<bool> {
+fn current_token() -> windows::core::Result<OwnedHandle> {
+    process_token(unsafe { GetCurrentProcess() })
+}
+
+fn process_token(process: HANDLE) -> windows::core::Result<OwnedHandle> {
     let mut token = HANDLE::default();
-    unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token)? };
-    let token = OwnedHandle(token);
+    unsafe { OpenProcessToken(process, TOKEN_QUERY, &mut token)? };
+    Ok(OwnedHandle(token))
+}
+
+pub fn is_elevated() -> windows::core::Result<bool> {
+    let token = current_token()?;
     let mut elevation = TOKEN_ELEVATION::default();
     let mut returned = 0;
     unsafe {
@@ -41,6 +49,26 @@ pub fn is_elevated() -> windows::core::Result<bool> {
         )?;
     }
     Ok(elevation.TokenIsElevated != 0)
+}
+
+pub fn current_user_sid() -> windows::core::Result<String> {
+    process_user_sid(unsafe { GetCurrentProcess() })
+}
+
+pub fn process_user_sid(process: HANDLE) -> windows::core::Result<String> {
+    let token = process_token(process)?;
+    let mut length = 0;
+    let _ = unsafe { GetTokenInformation(token.0, TokenUser, None, 0, &mut length) };
+    if length < size_of::<TOKEN_USER>() as u32 {
+        return Err(windows::core::Error::from_thread());
+    }
+    let mut buffer = vec![0usize; (length as usize).div_ceil(size_of::<usize>())];
+    unsafe {
+        GetTokenInformation(token.0, TokenUser, Some(buffer.as_mut_ptr().cast()), length, &mut length)?;
+        let sid = (*buffer.as_ptr().cast::<TOKEN_USER>()).User.Sid;
+        let bytes = std::slice::from_raw_parts(sid.0.cast::<u8>(), GetLengthSid(sid) as usize);
+        Ok(bytes.iter().map(|byte| format!("{byte:02x}")).collect())
+    }
 }
 
 // Quote a single argument for Windows' standard command-line parser.
@@ -68,9 +96,15 @@ pub fn relaunch_if_needed(executable: &Path) -> Result<Option<i32>, String> {
         return Ok(None);
     }
 
+    relaunch(executable, env::args_os().skip(1)).map(Some)
+}
+
+pub fn relaunch(executable: &Path, arguments: impl IntoIterator<Item = OsString>) -> Result<i32, String> {
     let file: Vec<u16> = executable.as_os_str().encode_wide().chain([0]).collect();
+    let directory = env::current_dir().map_err(|error| format!("Cannot read current working directory: {error}"))?;
+    let directory: Vec<u16> = directory.as_os_str().encode_wide().chain([0]).collect();
     let mut parameters = Vec::new();
-    for argument in env::args_os().skip(1) {
+    for argument in arguments {
         if !parameters.is_empty() {
             parameters.push(b' ' as u16);
         }
@@ -83,6 +117,7 @@ pub fn relaunch_if_needed(executable: &Path) -> Result<Option<i32>, String> {
         lpVerb: w!("runas"),
         lpFile: PCWSTR(file.as_ptr()),
         lpParameters: PCWSTR(parameters.as_ptr()),
+        lpDirectory: PCWSTR(directory.as_ptr()),
         nShow: 1,
         ..Default::default()
     };
@@ -110,5 +145,5 @@ pub fn relaunch_if_needed(executable: &Path) -> Result<Option<i32>, String> {
     let mut code = 0;
     unsafe { GetExitCodeProcess(child.0, &mut code) }
         .map_err(|error| format!("Cannot read elevated WSX exit code: {error}"))?;
-    Ok(Some(code as i32))
+    Ok(code as i32)
 }

@@ -24,35 +24,86 @@
   --ink: #15291b;
   --line: #34443f;
   --muted: #becbd5;
+}
+/* Store brand palette from wsxdesk.com. */
+.store-edition {
+  --base: #0d1420;
+  --panel: #172334;
+  --glow: #232d4b;
+  --accent: #a9d4ff;
+  --ink: #10243a;
+  --line: #3b4c65;
+  --muted: #becbd5;
+  --control: #233449;
+  --hover: #2a4059;
+}
+:is(.community-edition, .store-edition) {
   background: radial-gradient(ellipse at 80% 0%, var(--glow), transparent 44%), var(--base);
 }
-.community-edition :is(.topbar, .overview, .distro:not(.has-warning), .diagnostics section, dialog) {
+:is(.community-edition, .store-edition) :is(.topbar, .overview, .distro:not(.has-warning), .diagnostics section, dialog) {
   border-color: var(--line);
 }
-.community-edition :is(.overview, .distro, .diagnostics section, dialog) {
+:is(.community-edition, .store-edition) :is(.overview, .distro, .diagnostics section, dialog) {
   background: var(--panel);
 }
-.community-edition :is(.brand-mark, .desktop-action, .add-distro) {
+:is(.community-edition, .store-edition) :is(.brand-mark, .desktop-action, .add-distro) {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--ink);
 }
-.community-edition :is(.desktop-action, .add-distro):hover {
+:is(.community-edition, .store-edition) :is(.desktop-action, .add-distro):hover {
   filter: brightness(1.12);
 }
-.community-edition :is(.eyebrow, h1 span, .text-button) {
+:is(.community-edition, .store-edition) :is(.eyebrow, h1 span, .text-button) {
   color: var(--accent);
 }
-.community-edition :is(.intro p, .section-heading p, .distro-meta, dialog p) {
+:is(.community-edition, .store-edition) :is(.intro p, .section-heading p, .distro-meta, dialog p) {
   color: var(--muted);
 }
-.community-edition progress {
+:is(.community-edition, .store-edition) progress {
   accent-color: var(--accent);
 }
-.community-edition :focus-visible {
+:is(.community-edition, .store-edition) :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
-.store-edition{background:radial-gradient(ellipse at 82% 0%,#1b2d31 0,transparent 40%),#0d1714}
+.store-edition :is(.brand small, .top-label, .column-label, .overview small, .overview p,
+    .update-status, .license-status, .edition-label, .task-detail, footer) {
+  color: var(--muted);
+}
+.store-edition :is(button, input, .distro-icon, .badge:not(.uncertain), .upgrade-command,
+    .toast:not(.error), .install-task:not(.task-error)) {
+  background: var(--control);
+  border-color: var(--line);
+  color: var(--muted);
+}
+.store-edition :is(button:not(:disabled):hover, .text-button:hover) {
+  background: var(--hover);
+}
+.store-edition :is(.desktop-action, .add-distro) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.store-edition :is(.desktop-action, .add-distro):hover {
+  background: var(--accent);
+}
+.store-edition .text-button { background: none; color: var(--accent); }
+.store-edition :is(.distro-icon:not(.other), .badge:not(.uncertain), .task-status,
+    .new-badge, .state.running:not(:disabled)) { color: var(--accent); }
+.store-edition .state.running:not(:disabled) {
+  background: var(--control);
+  border-color: var(--line);
+}
+.store-edition .state.running:not(:disabled):hover { background: var(--hover); }
+.store-edition .state:disabled:hover { background: var(--control); }
+.store-edition .running .dot { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+#edition-footer:not([hidden]) { display: inline-flex; align-items: center; gap: 7px; }
+.store-edition .footer-dot { background: var(--accent); }
+.store-edition :is(.newly-installed:not(.has-warning), .task-success, .new-badge) { border-color: var(--accent); }
+.store-edition .newly-installed { box-shadow: 0 0 0 1px var(--accent); }
+.store-edition .new-badge { background: var(--panel); }
+.store-edition .catalog-spinner { border-color: var(--line); border-top-color: var(--accent); }
+.store-edition .task-error .task-status { color: #f0b6a8; }
 .edition-label{margin-left:12px;text-align:right;font-size:10px;letter-spacing:1.2px;font-weight:700;color:#8c9b9f}
 #environment-dialog .actions{justify-content:center}
