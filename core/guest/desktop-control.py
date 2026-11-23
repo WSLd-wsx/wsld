@@ -218,7 +218,7 @@ def guest_prepare_command(instance, protocol_major):
             'prepare', '--instance', str(identity)]
 
 
-def prepare(root, profile, instance, previous=None, sharing_path='opaque-v1', module_manifest_sha256=None, guest_protocol_major=1):
+def prepare(root, profile, instance, previous=None, sharing_path='opaque-v1', module_manifest_sha256=None, guest_protocol_major=1, audio=None):
     instance = uuid.UUID(instance.strip('{}'))
     if not instance.int:
         raise ValueError('Nonzero host instance required')
@@ -275,6 +275,8 @@ def prepare(root, profile, instance, previous=None, sharing_path='opaque-v1', mo
         raise RuntimeError('Expected one DRM card under the actual PCI owner')
     spec = dict(guest_interface_abi=1, instance_id=str(instance), drm_node=cards[0],
                 input_port=profile['port'] + 1, sharing_path=sharing_path)
+    if audio and audio.get('status') == 'ready':
+        spec.update(pulse_server=audio['server'], pulse_client_config=audio['client_config'])
     try:
         run(guest_command, input=json.dumps(spec))
     except subprocess.CalledProcessError as error:
@@ -352,7 +354,7 @@ if __name__ == '__main__':
     elif request['action'] == 'compatibility':
         result = verify_components(request['distribution'], request['compatibility'])
     elif request['action'] == 'prepare':
-        result = prepare(root, json.loads((root / 'wsx-runtime.json').read_text()), request['instance'], request.get('previous'), request.get('sharing_path', 'opaque-v1'), request.get('module_manifest_sha256'), request.get('guest_protocol_major', 1))
+        result = prepare(root, json.loads((root / 'wsx-runtime.json').read_text()), request['instance'], request.get('previous'), request.get('sharing_path', 'opaque-v1'), request.get('module_manifest_sha256'), request.get('guest_protocol_major', 1), request.get('audio'))
     elif request['action'] == 'recycle':
         result = runpy.run_path(str(root / 'module-reuse.py'))['recycle'](root, request.get('previous'), request.get('allow_reload', False), request.get('module_manifest_sha256'))
     else:

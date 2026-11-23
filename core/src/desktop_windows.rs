@@ -3,6 +3,8 @@ use super::*;
 pub(super) mod distro;
 #[path = "desktop_display_windows.rs"]
 mod display;
+#[path = "desktop_audio_windows.rs"]
+mod audio;
 use serde_json::json;
 use std::os::windows::process::CommandExt;
 use std::{
@@ -1309,6 +1311,12 @@ fn start_inner(
     if use_v2 { native["guest_protocol_major"] = json!(2); }
     let log = Path::new(field(&native, "log")?);
     let instance = field(&native, "instance")?;
+    let (mut audio, mut audio_status) = match crate::store::data_root().and_then(|root|
+        audio::Audio::start(&root, dir, reg, instance, observed_guest_capabilities.as_ref())
+    ) {
+        Ok(relay) => (relay, json!({"status":"disabled"})),
+        Err(error) => (None, json!({"status":"unavailable","error":error})),
+    };
     let deadline = Instant::now() + Duration::from_secs(45);
     loop {
         let text = log_tail(log);
@@ -1337,12 +1345,22 @@ fn start_inner(
         std::thread::sleep(Duration::from_millis(250));
     }
     phase(dir, "guest_preparing", native.clone())?;
+    if let Some(relay) = audio.as_mut() {
+        audio_status = match relay.prepare(reg, dir) {
+            Ok(status) => status,
+            Err(error) => json!({"status":"unavailable","error":error}),
+        };
+    }
+    if audio_status["status"] != "ready" {
+        audio = None;
+    }
+    audio::record(dir, &audio_status);
     let prepared = guest_control(
         reg,
         dir,
         json!({"action":"prepare","instance":instance,"previous":device_previous,
             "sharing_path":owner_rendering_path.guest_sharing_path(),"module_manifest_sha256":module_manifest_sha256,
-            "guest_protocol_major":if use_v2 {2} else {1}}),
+            "guest_protocol_major":if use_v2 {2} else {1},"audio":audio_status}),
     )?;
     if prepared["sharing_path"] != owner_rendering_path.guest_sharing_path() {
         return Err(format!("Guest preparation did not acknowledge the admitted sharing path; Host retained; diagnostics: {}", dir.display()));
@@ -1354,6 +1372,11 @@ fn start_inner(
 
     let mut session_args = vec!["-d", reg, "-u", "root", "--cd", "/", "--exec"];
     session_args.extend(DISTRO_INIT_MOUNT);
+    if audio_status["status"] == "ready" {
+        if let Some(relay) = audio.as_ref() {
+            relay.wrap(&mut session_args);
+        }
+    }
     if use_v2 {
         session_args.extend(["/usr/bin/python3", "-I", "/usr/lib/wsx/bootstrap-v2.py", "dispatch"]);
     } else {
@@ -1366,6 +1389,12 @@ fn start_inner(
         &session_args,
         dir,
     )?;
+    if let Some(relay) = audio.as_mut() {
+        if let Err(error) = relay.handoff() {
+            audio_status = json!({"status":"unavailable","error":error});
+            audio::record(dir, &audio_status);
+        }
+    }
 
     write_new(
         &dir.join("session-pid.json"),
@@ -1387,7 +1416,7 @@ fn start_inner(
             .any(|l| l.contains("WSX_PRESENT_FRAME:") && l.ends_with("result=0"))
         {
             let display = display::fit(reg, &native, dir).map_err(|e| format!("Desktop started, but display fitting failed: {e}. Host retained; use desktop fit to retry"))?;
-            let result = json!({"display":display,"phase":"first_frame_observed","id":item.id,"registration":reg,"native":native,"diagnostics":dir,"sharing_path":owner_rendering_path.as_str(),"kernel_crc_verified":true,"input_apps_and_retirement_validated":false});
+            let result = json!({"display":display,"phase":"first_frame_observed","id":item.id,"registration":reg,"native":native,"diagnostics":dir,"sharing_path":owner_rendering_path.as_str(),"kernel_crc_verified":true,"input_apps_and_retirement_validated":false,"audio":audio_status});
             phase(dir, "first_frame_observed", result.clone())?;
             return Ok(result);
         }

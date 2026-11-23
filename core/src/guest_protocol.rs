@@ -4,7 +4,7 @@ pub const MAJOR: u64 = 1;
 pub const MINOR: u64 = 0;
 pub const CAPABILITIES: &[&str] = &["account.status", "desktop.preflight", "session.status", "session.stop", "display.query", "display.apply", "lifecycle.cli-v1"];
 pub fn supports_capability(name: &str) -> bool {
-    CAPABILITIES.contains(&name) || ["graphics.distro-device-view-v1", "graphics.distro-input-view-v1", "graphics.linear-preflight-v1"].contains(&name)
+    CAPABILITIES.contains(&name) || ["graphics.distro-device-view-v1", "graphics.distro-input-view-v1", "graphics.linear-preflight-v1", "audio.pulse-relay-v1"].contains(&name)
 }
 pub fn request(id: &str, operation: &str, params: Value) -> Value {
     json!({"protocol":"wsx-guest","major":MAJOR,"minor":MINOR,"id":id,"operation":operation,"params":params})
