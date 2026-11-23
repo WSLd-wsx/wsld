@@ -80,21 +80,25 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.WSXD_TOKEN }}
+          RUNTIME_REPOSITORY: ${{ secrets.WSX_RUNTIME_REPOSITORY }}
         run: |
           $ErrorActionPreference = 'Stop'
+          if ($env:RUNTIME_REPOSITORY -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') {
+            throw 'Configure the runtime repository secret as OWNER/REPOSITORY.'
+          }
           $previous = $ErrorActionPreference
           $ErrorActionPreference = 'Continue'
           try {
-            $repository = gh api repos/approved/runtime --jq .full_name 2>$null
+            $repository = gh api "repos/$env:RUNTIME_REPOSITORY" --jq 'select(.private == true) | .full_name' 2>$null
             $repositoryStatus = $LASTEXITCODE
-            $release = gh release view --repo approved/runtime --json isDraft,isPrerelease,tagName,assets 2>$null
+            $release = gh release view --repo $env:RUNTIME_REPOSITORY --json isDraft,isPrerelease,tagName,assets 2>$null
             $releaseStatus = $LASTEXITCODE
           } finally { $ErrorActionPreference = $previous }
-          if ($repositoryStatus -ne 0 -or $repository -cne 'approved/runtime') {
-            throw 'WSXD_TOKEN cannot read the private approved/runtime repository; check repository access and Contents permission.'
+          if ($repositoryStatus -ne 0 -or $repository -cne $env:RUNTIME_REPOSITORY) {
+            throw 'WSXD_TOKEN cannot read the configured private runtime repository; check repository access and Contents permission.'
           }
           if ($releaseStatus -ne 0) {
-            throw 'WSXD_TOKEN can read wsx-host but cannot access its latest release.'
+            throw 'WSXD_TOKEN can read the runtime repository but cannot access its latest release.'
           }
           $metadata = $release | ConvertFrom-Json
           if ($metadata.isDraft -or $metadata.isPrerelease -or $metadata.tagName -cnotmatch '^host-[A-Za-z0-9._-]+$') { throw 'Latest Host release is not a valid stable runtime release' }
@@ -108,7 +112,7 @@ jobs:
           "sha256=$runtimeSha" >> $env:GITHUB_OUTPUT
           "Host runtime: $runtimeTag / $runtimeAsset / SHA-256 $runtimeSha" >> $env:GITHUB_STEP_SUMMARY
           New-Item -ItemType Directory -Path "$env:RUNNER_TEMP/wsx-runtime-download" | Out-Null
-          gh release download $runtimeTag --repo approved/runtime --pattern $runtimeAsset --dir "$env:RUNNER_TEMP/wsx-runtime-download"
+          gh release download $runtimeTag --repo $env:RUNTIME_REPOSITORY --pattern $runtimeAsset --dir "$env:RUNNER_TEMP/wsx-runtime-download"
           if ($LASTEXITCODE -ne 0) { throw 'Cannot download private runtime asset' }
           $zip = Join-Path "$env:RUNNER_TEMP/wsx-runtime-download" $runtimeAsset
           if (-not (Test-Path -LiteralPath $zip -PathType Leaf)) { throw 'Runtime asset missing' }
@@ -184,7 +188,7 @@ jobs:
           [IO.File]::WriteAllText("$package/SHA256SUMS", "$hash  wsx-community-windows-x64.zip`n$materialsHash  wsx-community-materials.zip`n")
           python wsld/scripts/audit-community-package.py "$package/wsx-community-windows-x64.zip" "$package/community-audit.json" --kernel-evidence "$package/kernel-source-evidence.zip"
           if ($LASTEXITCODE -ne 0) { throw 'Community package evidence audit failed' }
-          "Community version: $env:COMMUNITY_VERSION`nSource commit: $env:SOURCE_COMMIT`nRuntime: approved/runtime release $env:RUNTIME_TAG asset $env:RUNTIME_ASSET`nRuntime SHA-256: $env:RUNTIME_SHA256`nKernel modules: $env:KERNEL_TAG`nZIP SHA-256: $hash" | Set-Content "$package/build-provenance.txt"
+          "Community version: $env:COMMUNITY_VERSION`nSource commit: $env:SOURCE_COMMIT`nRuntime release: $env:RUNTIME_TAG asset $env:RUNTIME_ASSET`nRuntime SHA-256: $env:RUNTIME_SHA256`nKernel modules: $env:KERNEL_TAG`nZIP SHA-256: $hash" | Set-Content "$package/build-provenance.txt"
       - name: Save Cargo registry cache
         if: ${{ steps.registry-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
@@ -228,6 +232,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           HOST_TOKEN: ${{ secrets.WSXD_TOKEN }}
+          RUNTIME_REPOSITORY: ${{ secrets.WSX_RUNTIME_REPOSITORY }}
           SOURCE_COMMIT: ${{ steps.source.outputs.sha }}
           COMMUNITY_VERSION: ${{ steps.version.outputs.number }}
           KERNEL_TAG: ${{ steps.kernel.outputs.tag }}
@@ -238,8 +243,8 @@ jobs:
           $previousToken = $env:GH_TOKEN
           try {
             $env:GH_TOKEN = $env:HOST_TOKEN
-            $hostInfo = gh api repos/approved/runtime | ConvertFrom-Json
-            if ($LASTEXITCODE -ne 0 -or $hostInfo.full_name -cne 'approved/runtime' -or -not $hostInfo.private) { throw 'Runtime repository identity or visibility check failed' }
+            $hostInfo = gh api "repos/$env:RUNTIME_REPOSITORY" | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0 -or $hostInfo.full_name -cne $env:RUNTIME_REPOSITORY -or -not $hostInfo.private) { throw 'Runtime repository identity or visibility check failed' }
           } finally { $env:GH_TOKEN = $previousToken }
           function Require-NotFound([string]$Path) {
             $previous = $ErrorActionPreference

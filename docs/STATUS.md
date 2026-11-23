@@ -710,8 +710,7 @@ authorized installation does not add automatic toolchain installation to builds.
 
 ## Native product follow-up, 2026-11-02
 
-See [native acceptance](archived-review) for reproduction, exact hashes and
-limitations. Public MSVC tests: 16 passed. Private adapter tests: 2 passed.
+Public MSVC tests: 16 passed. Private adapter tests: 2 passed.
 24 real Windows process cases passed with the actual DLL adjacent to CLI,
 including loader failures, cwd/PATH decoys and argv[0] spoofing. PowerShell
 pipeline/redirection/error exit checks passed for both CLI names. Real Tauri

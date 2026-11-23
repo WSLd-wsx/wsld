@@ -1,6 +1,6 @@
 # Native runtime contract migration
 
-The graphics Host is developed in the separate `wsx-host` repository. The
+The graphics Host is supplied as a precompiled runtime. The
 versioned `wsx-native-runtime` declaration describes one independently built
 zero-copy or staging-copy runtime, its file hashes and required Guest contract.
 It does not itself establish origin, successful GPU execution, kernel module

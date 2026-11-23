@@ -93,7 +93,7 @@ consistency, not that the image is an authentic Microsoft target. The image and
 source relationship must be verified independently before release admission.
 
 The isolated build-root preparation logic and its package lock originate from
-the retained `archived-sources/prepare-build-root.py` experiment and
+the retained kernel build preparation experiment and
 `wsxdrm-build-20261012/build-env/build-packages.lock.json` evidence. They have
 been copied into this repository so a future build does not need the prototype
 checkout. The input rootfs may contain third-party build tools with their own

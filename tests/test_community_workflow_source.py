@@ -26,7 +26,8 @@ class CommunitySourceTests(unittest.TestCase):
         self.assertEqual(set(workflow[True]['workflow_dispatch']['inputs']), {'release'})
         steps = workflow['jobs']['build']['steps']
         runtime = next(step for step in steps if step.get('id') == 'runtime')
-        self.assertIn('gh release view --repo approved/runtime', runtime['run'])
+        self.assertIn('gh release view --repo $env:RUNTIME_REPOSITORY', runtime['run'])
+        self.assertIn('select(.private == true)', runtime['run'])
         self.assertIn('wsx-runtime.zip', runtime['run'])
         self.assertIn('Get-FileHash', runtime['run'])
         build = next(step for step in steps if step['name'] == 'Build and package community edition')
@@ -34,6 +35,9 @@ class CommunitySourceTests(unittest.TestCase):
             self.assertEqual(build['env'][key], '${{ steps.runtime.outputs.' + output + ' }}')
         draft = next(step for step in steps if step['name'] == 'Create draft release for review')
         self.assertIn('$env:RELEASE_TAG = "v$env:COMMUNITY_VERSION"', draft['run'])
+        self.assertIn("$hostInfo.full_name -cne $env:RUNTIME_REPOSITORY", draft['run'])
+        for step in (runtime, draft):
+            self.assertEqual(step['env']['RUNTIME_REPOSITORY'], '${{ secrets.WSX_RUNTIME_REPOSITORY }}')
 
     def test_delivery_verifies_mpl_sources_against_build_inputs(self):
         path = Path(__file__).resolve().parents[1] / '.github/workflows/community-release.yml'

@@ -47,17 +47,17 @@
       "available": true
     },
     {
-      "reference": "wsx-guest-sources/archived-sources/device-host/production/DIRECT-HOST.md",
+      "reference": "archived integration evidence",
       "sha256": "de87353dfa49cacff8c5ef28f13b664a6525e77aed00d47a18cf441305ca44ab",
       "available": true
     },
     {
-      "reference": "wsx-guest-sources/archived-sources/device-host/production/ROOTFS-HANDOFF.md",
+      "reference": "archived integration evidence",
       "sha256": "918071f633954b147ee7dfe3e55a9eeb9d4a241d8eb68970e5c386096b393d89",
       "available": true
     },
     {
-      "reference": "wsx-guest-sources/archived-evidence/rootfs-cachyos-r2-start-01/result.json",
+      "reference": "archived integration evidence",
       "sha256": "0d1f8c7c66cb68793201c65b68e33a2323bd7e41fc220ffea9feeea79def4674",
       "available": true
     }

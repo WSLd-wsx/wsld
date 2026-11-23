@@ -2,13 +2,13 @@
 
 This records product wiring as well as binary/source reuse. A copied executable
 does not inherit a validated deployment profile automatically. Evidence paths
-below refer to the read-only sibling `wsx-guest-sources` checkout for development review;
+below refer to archived development records;
 the product must never search that checkout at runtime. Historical acceptance is
 not a substitute for acceptance of this product lifetime.
 
 ## Native runtime profile
 
-Authority: `archived-evidence/ram-threshold-native-build-01/native_main.rs`
+Authority: the archived native runtime build
 defines a strict `Profile` with `deny_unknown_fields`. Core constructs its wire
 JSON in `core/src/graphics.rs::direct_profile`; `desktop_windows.rs::start_inner`
 writes it adjacent to the copied Native executable before launch.
@@ -22,7 +22,7 @@ writes it adjacent to the copied Native executable before launch.
 | `guest_ram_reclaim_pages` | CPU aperture cache high watermark; low is half | **Migration omission fixed:** Core now explicitly selects 64 (clamped to the admission budget), reusing the real 64/32 reference trial. Previously omitted, so Native defaulted to 1024. |
 | `adapter_device_path`, `device_uuid`, `driver_uuid`, `node_mask` | Actual active display/Vulkan identity | Derived from the live LUID join; no Iris/RTX branch or copied prototype identity. |
 
-The 64/32 reference is `archived-evidence/ram-reclaim-threshold-01`.
+The archived reference used the 64/32 profile.
 Its `test-profile.json`, `result.json` and actual `native.log` agree on 17 real
 reclaim cycles, 645 presentations and 49 presentations after the last reclaim.
 All completed reclaims end at 32 usable pages. This was a bounded Iris Xe/CachyOS

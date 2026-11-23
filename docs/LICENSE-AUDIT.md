@@ -12,7 +12,7 @@ older review below describes the license in effect at the time of that review.
 WGY confirmed that the then-current replacement icon artwork was original. Its
 `host/resources/icon.ico` SHA-256 was
 `0b59d21df135aa31aba1addefb07274a067d11ba29218d3dd35f4d679b6b36f4`;
-it matched `store-edition/icons/icon.ico` at that time. The earlier prototype icon, discussed
+it matched the corresponding edition icon at that time. The earlier prototype icon, discussed
 below, was present in the historical checkout and its original artwork source has not been
 independently established. The confirmation for the replacement is not
 evidence about that earlier icon.
@@ -20,12 +20,12 @@ evidence about that earlier icon.
 On 2026-11-15 the user supplied an updated icon. The current
 `host/resources/icon.ico` SHA-256 is
 `7059579aaa1db2c56e3914bc0e5db97f8472fbe8ab61ede28c9838f087d6712b`;
-it matches the copies in wsx-host and store-edition. On 2026-11-17 WGY confirmed
+it matches the copies in the runtime and edition builds. On 2026-11-17 WGY confirmed
 that this updated artwork is WGY's original work. That confirmation applies to
 this hash; the earlier prototype artwork has a separate provenance record.
 
 The five recorded `graphics-staging` prototype input hashes were independently
-checked against `wsx-guest-sources` commit `3199b15dd898d6033e255e6894411b4bb4cab816`.
+checked against the archived reference.
 That verifies the documented input identities, not the license status of an
 external graphics binary or the complete upstream source closure. MIT SPDX
 identifiers on staging files and the GPL-2.0-or-later identifier on

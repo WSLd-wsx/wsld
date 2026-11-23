@@ -53,8 +53,7 @@ running image or reinterpret fixture success as GPU acceptance.
 `wsxdesk.exe` detaches from its console at startup; CLI entry points retain their
 normal console and redirection. GUI diagnostic output is discarded by default.
 Set `WSX_GUI_LOG` to an absolute writable file path before launching Desk to
-append GUI diagnostic output to that file. `WSX_LOAD_TRACE` and acceptance-only
-`WSX_GUI_TEST` continue to support explicitly redirected test output. A
+append GUI diagnostic output to that file. A
 console-subsystem executable can briefly show a console before it detaches.
 Startup errors are shown in a message box. WSL inventory captures bounded query
 output in memory rather than creating discovery logs at every refresh.

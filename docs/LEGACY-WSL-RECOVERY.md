@@ -25,8 +25,8 @@ does not establish the required Guest/device/renderer retirement ordering.
 
 Read-only source references in the separate prototype repository:
 
-- `archived-sources/device-host/production/service-plugin.c`, `stopping`.
-- `archived-evidence/rtx3080ti-service-source-03/source/src/windows/service/exe/PluginManager.cpp`, `OnVmStopping`.
+- the archived service integration, `stopping`.
+- the archived Windows service source, `OnVmStopping`.
 - The same source tree's `LxssUserSession.cpp`, `_VmTerminate`.
 
 A previous native log reports `Expected one PCI function ... found 0`, failed

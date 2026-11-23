@@ -23,7 +23,7 @@ BSL 1.1 is source-available and is not an OSI-approved open-source license.
 | `kernel-modules/build-inputs/` | Build configuration and dependency lock evidence; preserve any applicable notices and verify third-party provenance separately. No new license is assigned by this directory boundary. |
 | Cargo dependencies | Their own licenses, listed with exact versions in `THIRD-PARTY-NOTICES.md`. The root license does not relicense dependencies or restrict rights granted directly by upstream authors. |
 | Downloaded or generated graphics bundles, Linux modules, kernel and rootfs images | Separate works and component-specific licenses, not a blanket BSL grant. A hash receipt establishes identity, not licensing compliance. |
-| `store-edition`, Tauri and WebView2 | Outside this repository's grant. Pro remains proprietary. This change grants no new Pro license and accepts no Microsoft redistribution terms. |
+| Store edition, Tauri and WebView2 | Outside this repository's grant. Pro remains proprietary. This change grants no new Pro license and accepts no Microsoft redistribution terms. |
 
 The SDK license does not grant rights to proprietary Pro code. WGY's selection
 of a license for WGY-owned material does not transfer third-party copyrights or
@@ -68,7 +68,7 @@ replacement icon artwork was original; its SHA-256 was
 On 2026-11-15 the user supplied updated artwork; the current
 `host/resources/icon.ico` SHA-256 is
 `7059579aaa1db2c56e3914bc0e5db97f8472fbe8ab61ede28c9838f087d6712b`,
-matching the copies in wsx-host and store-edition. The original receipt describes the
+matching the copies used by the runtime and edition builds. The original receipt describes the
 earlier prototype icon, not either replacement. On 2026-11-17 WGY confirmed that
 the current artwork identified by this SHA-256 is WGY's original work. Hashes
 establish byte identity; this confirmation is specific to the current icon and

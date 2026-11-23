@@ -1,5 +1,5 @@
 {
-  "reference": "wsx-guest-sources/archived-sources/ (read-only migration input; no runtime dependency)",
+  "reference": "archived stack probe migration input",
   "files": [
     {
       "source": "core/src/lib.rs",

@@ -2,8 +2,7 @@
 
 The community and Store candidates are separate builds. Each copies one PE to
 `wsld.exe` and `wsx.exe` for the CLI. The community GUI uses `wsldesk.exe`
-and the Store GUI uses `wsxdesk.exe`. The public community build does not depend
-on store-edition; the private Store build consumes the public source crates.
+and the Store GUI uses `wsxdesk.exe`. The Community build uses the public source crates and a verified runtime package.
 
 On Windows with the pinned Rust/MSVC toolchain, pass a reviewed runtime package
 and the corresponding Native and Guest catalogs to
@@ -25,30 +24,6 @@ and SHA-256 digests for the archived upstream kernel source. The materials ZIP
 retains module sources, configurations, and build evidence. Keep the linked
 public kernel release assets available alongside community binary releases.
 
-The Store counterpart is `store-edition/scripts/build-store-slice.ps1`; it checks the
-same runtime closure and builds the private Store executable. The compiled
-edition selects the interface. Test entitlement, purchases and updates with
-the actual Store package identity and the intended Microsoft Store account.
-The Store GUI and privileged CLI commands request elevation through UAC.
-The handoff verifies the elevated token, the WSX package family and the
-originating Windows user before opening the GUI or running Core operations.
-Read-only CLI commands run in the current terminal. A CLI handoff waits for
-the elevated operation and returns its exit code. The Store submission must
-obtain approval for the package's `allowElevation` capability.
-
-`build-store-package.ps1` accepts `-LinkedPackage` for the new PE, the matching
-runtime as `-CorePackage`, and the collected notice directory as `-ProNotices`.
-It produces an unsigned MSIX. Store signing, account entitlement, purchase,
-update behavior, fresh installation and real Store distribution are separate
-acceptance steps. Do not replace an existing installed Store package during
-local validation without checking ownership and the requested test scope.
-
-An MSVC community build was also made from a source snapshot containing no
-store-edition repository. On the current Windows machine, one sampled CLI run from
-each edition loaded GUI system libraries including USER32, GDI32 and DWMAPI;
-neither sample observed wsxpro.dll or WebView2. The two editions' three copies
-were hash-identical within the edition, and their CLI help, version, full pipe,
-invalid argument, unknown file name and forged argv[0] checks passed. An
-early-closing PowerShell pipeline produced inconsistent results in both new
-builds, while the older DLL baseline also returned `-1`; Ctrl+C,
-Explorer launch and packaged Store behavior require further testing.
+The hosted workflow reads the approved runtime repository from the
+`WSX_RUNTIME_REPOSITORY` Actions secret. Set it to the canonical
+`OWNER/REPOSITORY` name and give the runtime token Contents read access.

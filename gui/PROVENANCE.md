@@ -1,6 +1,6 @@
 # Shared GUI migration provenance
 
-The shared frontend was copied byte-for-byte from the local store-edition checkout at
+The shared frontend was copied byte-for-byte from the archived edition source at
 commit `6418529bece854effda9c5dbd9ebd73c85e8aac8` as part of the owner's
 community/Store edition redesign. The private checkout is not a community build
 or runtime dependency. Baseline SHA-256 values are:

@@ -401,19 +401,5 @@ Other arguments:
         Show the WSX Core version.
 
     list | status | catalog | timezone
-        Show WSX inventory, image catalog or the system time zone.
-
-Advanced diagnostics:
-
-    candidate show|fetch TAG [--token-stdin]
-    candidate unpack|import-test TAG --max-tar-bytes N
-    candidate desktop-start|desktop-retry|desktop-restart-check INSTANCE_ID --reference-runtime DIRECTORY
-    candidate desktop-status|desktop-stop INSTANCE_ID
-    graphics verify-reference DIRECTORY KERNEL_VERSION
-    graphics select-adapter|diagnose-adapter PATHS.json DEVICES.json
-    graphics diagnose-capabilities PATHS.json DEVICES.json PROBE.json
-    graphics diagnose-gpu-copy AUTO.jsonl STAGING.jsonl
-    resolve ID INDEX.json
-    verify-release DIRECTORY
-    diagnostic-task STEPS"#);
+        Show WSX inventory, image catalog or the system time zone."#);
 }

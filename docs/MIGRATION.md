@@ -14,9 +14,6 @@ No existing history or unrelated changes were discarded.
 | wsld/docs/ABI.md | explicit incompatible v2 lifecycle contract |
 | wsld/tests/test_contract.py | behavioral SDK/layout and process acceptance |
 | wsld/build.cmd | native Cargo/MSVC build and same-PE packaging |
-| store-edition/src/pro.c | Rust dll-runtime/Core client and Tauri manager |
-| store-edition/include/wsx_abi.h | controlled SDK include, no independent declaration |
-| store-edition/build.cmd | independent locked Rust/Tauri build |
 | both README.md | Rust/MSVC responsibility and validation status |
 
 The former v1 synchronous execute API, Win32 button UI and post-GUI FreeLibrary

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "origin": "wsx-guest-sources native-memory-build-09 and virglrenderer-win32-port-11 Vulkan headers",
+  "origin": "archived native memory build and virglrenderer-win32-port-11 Vulkan headers",
   "probe_spdx": "MIT",
   "vulkan_headers_spdx": "Apache-2.0",
   "files": {

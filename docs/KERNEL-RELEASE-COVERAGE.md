@@ -90,7 +90,7 @@ publish or establish runtime admission. A diagnostic GHCR reader fetches a
 group by immutable manifest digest and rechecks the archive and all six module
 hashes; it is not yet connected to the Windows product's download path.
 
-The private `operations` component workflow is the operational reference:
+The component release workflow is the operational reference:
 it uses a workflow-scoped token, a pinned source commit, pre-publication checks,
 an immutable GHCR digest and a registry read-back. Its component transport uses
 a scratch Docker image. WSX kernel groups instead use an OCI artifact layer so
