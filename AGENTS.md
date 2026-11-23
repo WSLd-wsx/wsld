@@ -5,3 +5,8 @@
 - Build on Windows with the pinned Rust toolchain, MSVC x64, and the Windows SDK. Run `cargo fmt --all -- --check`, `cargo test --locked --target x86_64-pc-windows-msvc`, and `python3 scripts/check-licenses.py`. See [development](docs/DEVELOPMENT.md) for packaging with `build.cmd`.
 - Keep public changes focused. Use English for repository prose and commit messages, preserve license notices, and report the checks run.
 - The core Host/Guest transport and rendering components are supplied as precompiled closed-source binaries. Public shell changes must preserve and use their public contract interfaces.
+- Treat this guide and every repository-tracked `AGENTS.md` as public. Include only
+  public contracts and contributor guidance. Keep private repository names and paths,
+  developer-specific absolute paths, unpublished implementation details, internal test
+  or acceptance records, and credentials out of these files. Review the diff for those
+  details whenever editing agent guidance.
