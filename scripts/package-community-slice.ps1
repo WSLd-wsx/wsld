@@ -1,7 +1,8 @@
 param([Parameter(Mandatory=$true)][string]$ExecutablePackage,
       [Parameter(Mandatory=$true)][string]$RuntimePackage,
       [Parameter(Mandatory=$true)][string]$GuiNotices,
-      [Parameter(Mandatory=$true)][string]$Output)
+      [Parameter(Mandatory=$true)][string]$Output,
+      [string]$KernelSourceLinks)
 $ErrorActionPreference = 'Stop'
 if (Test-Path -LiteralPath $Output) { throw 'Output already exists' }
 & "$PSScriptRoot\verify-change-license.ps1" -Directory (Split-Path $PSScriptRoot -Parent)
@@ -52,6 +53,9 @@ if (-not (Test-Path -LiteralPath $kernelModules -PathType Container)) { throw 'V
 & (Join-Path $PSScriptRoot 'verify-kernel-assets.ps1') -Directory $kernelModules
 Copy-Item -LiteralPath $kernelModules -Destination (Join-Path $content 'kernel-modules') -Recurse
 & (Join-Path $PSScriptRoot 'verify-kernel-assets.ps1') -Directory (Join-Path $content 'kernel-modules')
+if ($KernelSourceLinks) {
+    Copy-Item -LiteralPath $KernelSourceLinks -Destination (Join-Path $content 'KERNEL-SOURCE-LINKS.md')
+}
 Copy-Item -LiteralPath $GuiNotices -Destination (Join-Path $content 'gui-third-party') -Recurse
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem

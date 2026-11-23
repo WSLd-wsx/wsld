@@ -20,6 +20,11 @@ and product versions before creating the matching tag and Release. Existing tags
 reserve their versions, including tags created for drafts. Promote a draft to
 a pre-release and then to a stable release by editing the same GitHub Release.
 
+The Windows ZIP includes `KERNEL-SOURCE-LINKS.md` with version-specific links
+and SHA-256 digests for the archived upstream kernel source. The materials ZIP
+retains module sources, configurations, and build evidence. Keep the linked
+public kernel release assets available alongside community binary releases.
+
 The Store counterpart is `store-edition/scripts/build-store-slice.ps1`; it checks the
 same runtime closure and builds the private Store executable. The compiled
 edition selects the interface. Test entitlement, purchases and updates with

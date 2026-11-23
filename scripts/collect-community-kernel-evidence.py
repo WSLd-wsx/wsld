@@ -17,7 +17,14 @@ def sha(path):
         return hashlib.file_digest(f, 'sha256').hexdigest()
 
 
-def collect(index_path, assets, output):
+def collect(index_path, assets, output, release_tag=None, links_output=None):
+    if bool(release_tag) != bool(links_output):
+        raise ValueError('Supply both the kernel release tag and source links output')
+    if release_tag and not re.fullmatch(r'wsx-kernel-(?:rebuild-)?[0-9]+-[0-9]+', release_tag):
+        raise ValueError('Invalid public kernel release tag')
+    if links_output and links_output.exists():
+        raise ValueError('Source links output already exists')
+    links = {}
     if output.exists():
         raise ValueError('Evidence output already exists')
     index = json.loads(index_path.read_text(encoding='utf-8'))
@@ -79,7 +86,11 @@ def collect(index_path, assets, output):
                 path = assets / descriptor['asset']
                 if not path.is_file() or path.is_symlink() or path.stat().st_size != descriptor.get('bytes') or sha(path) != value:
                     raise ValueError('Kernel build evidence asset mismatch: ' + descriptor['asset'])
-                selected[path.name] = path
+                if key == 'kernel_source_archive' and release_tag:
+                    links[version] = {'asset': path.name, 'sha256': value, 'bytes': path.stat().st_size,
+                                      'url': f'https://github.com/WSLd-wsx/wsld/releases/download/{release_tag}/{path.name}'}
+                else:
+                    selected[path.name] = path
             module_archive = source.get('module_archive')
             module_records = source.get('modules')
             if (not isinstance(module_archive, dict) or module_archive.get('asset') != entry.get('archive')
@@ -134,10 +145,27 @@ def collect(index_path, assets, output):
                         'kernel_source': kernel_source, 'extended_build_evidence': all(present)})
     manifest = {'schema_version': 1, 'kernel_index_sha256': sha(index_path), 'modules': records,
                 'scope': 'Component source evidence and asset-bound review reports when available; this collector does not independently determine completeness.'}
+    if release_tag:
+        if set(links) != {record['kernel_version'] for record in records}:
+            raise ValueError('A versioned public kernel source archive is required for every bundled module group')
+        manifest['kernel_source_downloads'] = links
+        lines = ['# WSL kernel source downloads', '',
+                 'These archives correspond to the kernel modules shipped in this package.',
+                 'The community materials ZIP contains the associated module source, configuration, and build evidence.',
+                 '']
+        for version, entry in sorted(links.items()):
+            lines.extend([f"- [{version}: {entry['asset']}]({entry['url']})",
+                          f"  SHA-256: `{entry['sha256']}`"])
+        link_text = '\n'.join(lines) + '\n'
     with zipfile.ZipFile(output, 'x', compression=zipfile.ZIP_DEFLATED) as z:
         z.writestr('evidence-manifest.json', json.dumps(manifest, sort_keys=True, indent=2) + '\n')
+        if release_tag:
+            z.writestr('KERNEL-SOURCE-LINKS.md', link_text)
         for name, path in sorted(selected.items()):
             z.write(path, 'assets/' + name)
+    if links_output:
+        with links_output.open('x', encoding='utf-8', newline='\n') as stream:
+            stream.write(link_text)
     return manifest
 
 
@@ -146,5 +174,7 @@ if __name__ == '__main__':
     parser.add_argument('index', type=Path)
     parser.add_argument('assets', type=Path)
     parser.add_argument('output', type=Path)
+    parser.add_argument('--release-tag')
+    parser.add_argument('--links-output', type=Path)
     args = parser.parse_args()
-    print(json.dumps(collect(args.index, args.assets, args.output), sort_keys=True))
+    print(json.dumps(collect(args.index, args.assets, args.output, args.release_tag, args.links_output), sort_keys=True))

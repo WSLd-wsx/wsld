@@ -77,6 +77,11 @@ def assemble(package, runtime, kernel, source, output):
         if kernel_manifest.get('kernel_index_sha256') != index_sha:
             raise ValueError('Kernel evidence differs from product index')
         material_names = [name for name in product_names if name in core_files or name.startswith(('licenses/', 'gui-third-party/'))]
+        if 'kernel_source_downloads' in kernel_manifest:
+            link_name = 'KERNEL-SOURCE-LINKS.md'
+            if link_name not in product_set or archive_hash(product, link_name) != archive_hash(evidence, link_name):
+                raise ValueError('Kernel source links differ between product and evidence')
+            material_names.append(link_name)
         if not any(name.startswith('gui-third-party/') for name in material_names):
             raise ValueError('Missing GUI notices')
         manifest = {'schema_version': 1, 'package_sha256': file_hash(package), 'runtime_sha256': file_hash(runtime),
