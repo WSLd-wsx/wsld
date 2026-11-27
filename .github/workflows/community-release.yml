@@ -134,7 +134,7 @@ jobs:
           gh release download $kernelTag --repo WSLd-wsx/wsld --pattern 'modules_*.tar.gz' --pattern 'modules_*.json' --pattern 'source-materials-*.json' --pattern 'source-review-*.json' --pattern 'module-sources-*.tar.gz' --pattern 'kernel-config-*.txt' --pattern 'kernel-source-*.tar.gz' --pattern 'build-inputs-*.tar.gz' --pattern 'evidence-*.tar.gz' --pattern 'build-evidence-*.tar.gz' --dir $download
           if ($LASTEXITCODE -ne 0) { throw 'Cannot download kernel module release assets' }
           "Kernel module release: $kernelTag" >> $env:GITHUB_STEP_SUMMARY
-          python wsld/scripts/stage-kernel-assets.py $download "$env:RUNNER_TEMP/wsx-product-runtime/runtime/kernel-modules"
+          python wsld/scripts/stage-kernel-assets.py $download "$env:RUNNER_TEMP/wsx-product-runtime/runtime/kernel-modules" --wsl-stable
           if ($LASTEXITCODE -ne 0) { throw 'Kernel module assets failed staging verification' }
           python wsld/scripts/collect-community-kernel-evidence.py "$env:RUNNER_TEMP/wsx-product-runtime/runtime/kernel-modules/index.json" $download "$env:RUNNER_TEMP/wsx-kernel-source-evidence.zip" --release-tag $kernelTag --links-output "$env:RUNNER_TEMP/KERNEL-SOURCE-LINKS.md"
           if ($LASTEXITCODE -ne 0) { throw 'Kernel source evidence verification failed' }

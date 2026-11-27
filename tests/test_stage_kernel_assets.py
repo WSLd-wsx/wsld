@@ -26,6 +26,35 @@ class StageKernelAssetsTests(unittest.TestCase):
                 module.stage(source, root / 'result')
             self.assertFalse((root / 'result').exists())
 
+    def test_stages_only_exact_stable_wsl_versions_from_release_or_index(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / 'source'
+            source.mkdir()
+            for version in ('6.18.58.1-1', '6.18.58.1-2', '6.18.64.1-1'):
+                archive = source / f'modules_{version}.tar.gz'
+                with tarfile.open(archive, 'w:gz', format=tarfile.USTAR_FORMAT) as out:
+                    out.addfile(tarfile.TarInfo('virtio-gpu.ko'))
+                metadata = {
+                    'schema_version': 1, 'kernel_version': version, 'archive': archive.name,
+                    'archive_bytes': archive.stat().st_size,
+                    'archive_sha256': hashlib.sha256(archive.read_bytes()).hexdigest(),
+                }
+                (source / f'modules_{version}-22-1.json').write_text(json.dumps(metadata))
+
+            allowed = {'6.18.58.1-1'}
+            module.stage(source, root / 'community', allowed)
+            module.stage(source, root / 'runtime')
+            module.stage_verified_index(root / 'runtime', root / 'store', allowed)
+            for edition in ('community', 'store'):
+                staged = root / edition
+                index = json.loads((staged / 'index.json').read_bytes())
+                self.assertEqual([entry['kernel_version'] for entry in index['modules']], ['6.18.58.1-1'])
+                self.assertEqual({path.name for path in staged.iterdir()}, {'index.json', 'modules_6.18.58.1-1.tar.gz'})
+            with self.assertRaisesRegex(ValueError, 'No eligible module archives'):
+                module.stage(source, root / 'empty', set())
+            self.assertFalse((root / 'empty').exists())
+
     def test_stages_verified_archive_and_rejects_mutation(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
