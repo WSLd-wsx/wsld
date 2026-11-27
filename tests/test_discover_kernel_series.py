@@ -8,18 +8,54 @@ spec = importlib.util.spec_from_file_location('discover_kernel_series', path)
 module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
 
 class DiscoveryTests(unittest.TestCase):
-    def test_only_latest_stable_source_with_an_exact_feed_package_is_prebuilt(self):
-        release = {'tag_name': 'linux-msft-wsl-6.18.54.1', 'draft': False, 'prerelease': False}
-        feed = {'versions': ['6.18.40.1-1', '6.18.54.1-1', '6.18.54.1-2']}
-        targets = [{'version': '6.18.40.1-1'}]
-        self.assertEqual(module.early_target(release, feed, targets),
-                         {'tag': release['tag_name'], 'version': '6.18.54.1-2', 'referenced': False})
-        self.assertTrue(module.early_target(release, feed, targets + [{'version': '6.18.54.1-2'}])['referenced'])
-        self.assertIsNone(module.early_target(release, {'versions': ['6.18.40.1-1']}, targets))
-        self.assertIsNone(module.early_target(release, feed, [{'version': '6.18.58.1-1'}]))
-        self.assertIsNone(module.early_target(dict(release, tag_name=release['tag_name']+'-rc1'), feed, targets))
-        with self.assertRaisesRegex(ValueError, 'not stable'):
-            module.early_target(dict(release, prerelease=True), feed, targets)
+    def test_feed_candidates_require_an_exact_stable_source_release(self):
+        stable = {'tag_name': 'linux-msft-wsl-6.18.54.1', 'draft': False, 'prerelease': False}
+        preview = dict(stable, tag_name='linux-msft-wsl-6.18.58.1', prerelease=True)
+        draft = dict(stable, tag_name='linux-msft-wsl-6.18.60.1', draft=True)
+        source_only = dict(stable, tag_name='linux-msft-wsl-6.18.66.1')
+        feed = {'versions': [
+            '6.18.54.1-2', '6.18.54.1-1', '6.18.54.1-10', '6.18.54.1-special',
+            '6.18.58.1-1', '6.18.60.1-1', '6.18.64.1-1',
+        ]}
+        self.assertEqual(module.latest_stable_target(feed, [preview, stable, source_only, draft]),
+                         {'tag': stable['tag_name'], 'version': '6.18.54.1-10'})
+        self.assertIsNone(module.latest_stable_target(feed, [preview, source_only, draft]))
+
+    def test_unreferenced_stable_enters_publication_and_is_retained(self):
+        releases = [{'tag_name': '3.0.5', 'draft': False, 'prerelease': True}]
+        kernels = {'3.0.5': '6.18.66.1-1'}
+        feed = {'versions': ['6.18.64.1-1', '6.18.66.1-1']}
+        latest = {'tag_name': 'linux-msft-wsl-6.18.64.1', 'draft': False, 'prerelease': False}
+        assets = [{'name': 'modules_6.18.66.1-1.tar.gz'}, {'name': 'modules_6.18.66.1-1-3-1.json'}]
+        wsl_target, stable_target = module.plan(releases, kernels, feed, assets, [latest])
+        self.assertFalse(wsl_target['missing'])
+        self.assertEqual(stable_target, {
+            'tag': latest['tag_name'], 'version': '6.18.64.1-1', 'wsl_releases': [],
+            'latest_stable': True, 'missing': True,
+        })
+
+        assets += [{'name': 'modules_6.18.64.1-1.tar.gz'}, {'name': 'modules_6.18.64.1-1-4-1.json'}]
+        self.assertFalse(any(target['missing'] for target in module.plan(releases, kernels, feed, assets, [latest])))
+
+        latest['tag_name'] = 'linux-msft-wsl-6.18.66.1'
+        result = module.plan(releases, kernels, feed, assets, [latest])
+        self.assertEqual([target['version'] for target in result], ['6.18.66.1-1', '6.18.64.1-1'])
+        self.assertTrue(result[0]['latest_stable'])
+        self.assertFalse(any(target['missing'] for target in result))
+
+    def test_wsl_adoption_reuses_only_the_exact_published_package_revision(self):
+        releases = [{'tag_name': '3.0.6', 'draft': False, 'prerelease': False}]
+        stable = {'tag_name': 'linux-msft-wsl-6.18.64.1', 'draft': False, 'prerelease': False}
+        assets = [{'name': 'modules_6.18.64.1-1.tar.gz'}, {'name': 'modules_6.18.64.1-1-4-1.json'}]
+        feed = {'versions': ['6.18.64.1-1']}
+        targets = module.plan(releases, {'3.0.6': '6.18.64.1-1'}, feed, assets, [stable])
+        self.assertEqual([(item['version'], item['missing']) for item in targets], [('6.18.64.1-1', False)])
+        self.assertEqual(targets[0]['wsl_releases'], [{'tag': '3.0.6', 'prerelease': False}])
+
+        feed['versions'].append('6.18.64.1-2')
+        targets = module.plan(releases, {'3.0.6': '6.18.64.1-2'}, feed, assets, [stable])
+        self.assertEqual([(item['version'], item['missing']) for item in targets],
+                         [('6.18.64.1-2', True), ('6.18.64.1-1', False)])
 
     def test_wsl_versions_include_preview_deduplicate_and_skip_existing(self):
         releases = [{'tag_name':'3.0.2','draft':False,'prerelease':True},

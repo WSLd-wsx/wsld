@@ -42,31 +42,16 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_*kernel*.py' -q
           python3 -m unittest discover -s tests -p 'test_export_kernel_groups.py' -q
           python3 -m unittest discover -s tests -p 'test_bootstrap_kernel_snapshot.py' -q
-      - name: Discover official WSL releases and the newest stable kernel package
-        id: discovery
+      - name: Discover kernel feed packages with stable source releases and WSL dependencies
         run: |
           set -euo pipefail
-          python3 scripts/discover-kernel-series.py "$GITHUB_REPOSITORY" "$RUNNER_TEMP/wsx-early.json" > "$RUNNER_TEMP/wsx-targets.json"
-          python3 scripts/kernel_build_generation.py > "$RUNNER_TEMP/wsx-build-generation.json"
-          python3 - "$RUNNER_TEMP" <<'PYCODE'
-          import json, os, pathlib, sys
-          root = pathlib.Path(sys.argv[1])
-          candidate = json.loads((root / 'wsx-early.json').read_text())
-          if candidate:
-              generation = json.loads((root / 'wsx-build-generation.json').read_text())['generation']
-              with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
-                  print(f"key=wsx-prebuilt-kernel-v1-{generation}-{candidate['commit']}-{candidate['version']}", file=out)
-                  print(f"prebuild={str(not candidate['referenced']).lower()}", file=out)
-                  print(f"tag={candidate['tag']}", file=out)
-                  print(f"version={candidate['version']}", file=out)
-                  print(f"commit={candidate['commit']}", file=out)
-          PYCODE
+          python3 scripts/discover-kernel-series.py "$GITHUB_REPOSITORY" > "$RUNNER_TEMP/wsx-targets.json"
           if [ -n "$REQUESTED_TARGET" ]; then
             python3 - "$RUNNER_TEMP/wsx-targets.json" "$REQUESTED_TARGET" <<'PYCODE'
           import json,sys
           path,target=sys.argv[1:]
           items=[item for item in json.load(open(path)) if item['tag']==target]
-          if len(items)!=1: raise ValueError('Requested target is not referenced by a released WSL 3.0.3 or newer')
+          if len(items)!=1: raise ValueError('Requested target is not in the kernel publication plan')
           PYCODE
           fi
           python3 - "$RUNNER_TEMP/wsx-targets.json" <<'PYCODE' | tee -a "$GITHUB_STEP_SUMMARY"
@@ -81,6 +66,9 @@ jobs:
               for release in item['wsl_releases']:
                   channel='Preview' if release['prerelease'] else 'Stable'
                   print(f"| {release['tag']} | {channel} | {item['version']} | {action} |")
+              if not item['wsl_releases']:
+                  channel='Latest stable upstream kernel' if item.get('latest_stable') else 'Previously published kernel'
+                  print(f"| — | {channel} | {item['version']} | {action} |")
           PYCODE
           python3 - "$RUNNER_TEMP/wsx-targets.json" > "$RUNNER_TEMP/wsx-targets.tsv" <<'PYCODE'
           import json,os,sys
@@ -88,17 +76,7 @@ jobs:
           if os.environ['REBUILD_EXISTING'] == 'true' or any(item['missing'] for item in items):
               for item in items: print(item['tag'] + '\t' + item['version'])
           PYCODE
-      - name: Restore verified prebuilt kernel workspace
-        id: prebuilt
-        if: ${{ steps.discovery.outputs.key != '' && env.REBUILD_EXISTING != 'true' }}
-        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
-        with:
-          path: ${{ runner.temp }}/wsx-prebuilt-kernel
-          key: ${{ steps.discovery.outputs.key }}
-      - name: Build missing modules referenced by released WSL
-        env:
-          CACHED_VERSION: ${{ steps.discovery.outputs.version }}
-          PREBUILT_HIT: ${{ steps.prebuilt.outputs.cache-hit }}
+      - name: Build modules for the kernel publication plan
         run: |
           set -euo pipefail
           shared="$RUNNER_TEMP/wsx-shared-build-cache"
@@ -113,11 +91,7 @@ jobs:
             if [[ ! "$commit" =~ ^[0-9a-f]{40}$ ]]; then echo "Invalid upstream source tag: $target" >&2; failures=$((failures+1)); echo '::endgroup::'; continue; fi
             work="$RUNNER_TEMP/wsx-kernel-$version"
             mkdir "$work"
-            candidate=""
-            if [ "$PREBUILT_HIT" = true ] && [ "$version" = "$CACHED_VERSION" ]; then
-              candidate="$RUNNER_TEMP/wsx-prebuilt-kernel"
-            fi
-            if WSX_KERNEL_PREBUILT_WORKSPACE="$candidate" RUNNER_TEMP="$work" WSX_KERNEL_SHARED_CACHE="$shared" WSX_KERNEL_ARTIFACT_ROOT="$artifact_root" TARGET_TAG="$target" TARGET_VERSION="$version" TARGET_COMMIT="$commit" bash scripts/publish-kernel-target.sh; then
+            if RUNNER_TEMP="$work" WSX_KERNEL_SHARED_CACHE="$shared" WSX_KERNEL_ARTIFACT_ROOT="$artifact_root" TARGET_TAG="$target" TARGET_VERSION="$version" TARGET_COMMIT="$commit" bash scripts/publish-kernel-target.sh; then
               echo "Prepared rebuilt $version for release" >> "$GITHUB_STEP_SUMMARY"
             else
               echo "Failed $target ($version); inspect workflow logs" | tee -a "$GITHUB_STEP_SUMMARY"
@@ -139,24 +113,3 @@ jobs:
           else
             echo 'All discovered kernels are already published; no release created.' >> "$GITHUB_STEP_SUMMARY"
           fi
-      - name: Prebuild the newest unreferenced official stable kernel
-        if: ${{ steps.discovery.outputs.prebuild == 'true' && steps.prebuilt.outputs.cache-hit != 'true' && env.REBUILD_EXISTING != 'true' }}
-        env:
-          EARLY_TAG: ${{ steps.discovery.outputs.tag }}
-          EARLY_VERSION: ${{ steps.discovery.outputs.version }}
-          EARLY_COMMIT: ${{ steps.discovery.outputs.commit }}
-        run: |
-          set -euo pipefail
-          coverage="$RUNNER_TEMP/wsx-early-coverage"
-          mkdir "$coverage"
-          python3 scripts/fetch-target-kernel-package.py --tag "$EARLY_TAG" --version "$EARLY_VERSION" --coverage "$coverage"
-          WSX_KERNEL_SAVE_PREBUILT_WORKSPACE="$RUNNER_TEMP/wsx-prebuilt-kernel" \
-            WSX_KERNEL_SHARED_CACHE="$RUNNER_TEMP/wsx-shared-build-cache" \
-            python3 scripts/build-coverage-target.py --tag "$EARLY_TAG" --commit "$EARLY_COMMIT" --coverage "$coverage"
-          echo "Prebuilt $EARLY_VERSION before WSL release adoption. No module release was published for this target." >> "$GITHUB_STEP_SUMMARY"
-      - name: Save prebuilt kernel for a future WSL release
-        if: ${{ steps.discovery.outputs.prebuild == 'true' && steps.prebuilt.outputs.cache-hit != 'true' && env.REBUILD_EXISTING != 'true' }}
-        uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
-        with:
-          path: ${{ runner.temp }}/wsx-prebuilt-kernel
-          key: ${{ steps.discovery.outputs.key }}

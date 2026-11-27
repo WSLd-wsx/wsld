@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plan kernel packages referenced by released WSL 3.0.3 and newer."""
+"""Plan modules for released WSL and the latest stable upstream kernel."""
 import base64
 import importlib.util
 import json
@@ -17,7 +17,6 @@ spec = importlib.util.spec_from_file_location('wsl_preview', ROOT / 'wsl-preview
 preview = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(preview)
 WSL_VERSION = re.compile(r'([0-9]+)\.([0-9]+)\.([0-9]+)(?:\.([0-9]+))?(?:-(?:rc|preview)[0-9]+)?\Z', re.I)
-SOURCE = re.compile(r'linux-msft-wsl-([0-9]+(?:\.[0-9]+){3})\Z')
 KERNEL = re.compile(r'([0-9]+(?:\.[0-9]+){3})-([0-9]+)\Z')
 SHA = re.compile(r'[0-9a-f]{40}\Z')
 
@@ -39,7 +38,7 @@ def selected_releases(releases):
     return sorted(selected, key=lambda x: (x['version'], not x['preview'], x['tag']), reverse=True)
 
 
-def plan(releases, kernel_by_wsl, index, assets):
+def plan(releases, kernel_by_wsl, index, assets, source_releases=()):
     if not isinstance(index, dict) or not isinstance(index.get('versions'), list) or not isinstance(assets, list):
         raise ValueError('Invalid kernel package or release inventory')
     published = {a['name'] for a in assets if isinstance(a, dict) and isinstance(a.get('name'), str)}
@@ -52,6 +51,22 @@ def plan(releases, kernel_by_wsl, index, assets):
         if version not in index['versions']: raise ValueError('Exact WSL kernel package unavailable: ' + version)
         entry = found.setdefault(version, {'tag': 'linux-msft-wsl-' + match.group(1), 'version': version, 'wsl_releases': []})
         entry['wsl_releases'].append({'tag': tag, 'prerelease': release['preview']})
+    candidate = latest_stable_target(index, source_releases)
+    if candidate:
+        entry = found.setdefault(candidate['version'], dict(candidate, wsl_releases=[]))
+        entry['latest_stable'] = True
+
+    # The newest complete release must retain previously published targets
+    # while Microsoft still provides their exact packages.
+    for name in published:
+        archive = re.fullmatch(r'modules_(.+)\.tar\.gz', name)
+        if archive:
+            version = archive.group(1)
+            match = KERNEL.fullmatch(version)
+            if match and version in index['versions']:
+                found.setdefault(version, {'tag': 'linux-msft-wsl-' + match.group(1),
+                                           'version': version, 'wsl_releases': []})
+
     for version, entry in found.items():
         archive = 'modules_' + version + '.tar.gz'
         if archive in published and not any(re.fullmatch(re.escape('modules_' + version) + r'-[0-9]+-[0-9]+\.json', name) for name in published):
@@ -60,23 +75,25 @@ def plan(releases, kernel_by_wsl, index, assets):
     return sorted(found.values(), key=lambda e: tuple(int(v) for v in re.split(r'[.-]', e['version'])), reverse=True)
 
 
-def early_target(release, index, targets):
-    """Pick the latest official stable source with a listed exact package."""
-    if release.get('draft') is not False or release.get('prerelease') is not False:
-        raise ValueError('Latest official kernel release is not stable')
-    match = SOURCE.fullmatch(release.get('tag_name', ''))
-    if not match:
-        return None
-    candidates = [version for version in index['versions']
-                  if (item := KERNEL.fullmatch(version)) and item.group(1) == match.group(1)]
-    version_key = lambda value: tuple(map(int, re.split(r'[.-]', value)))
+def latest_stable_target(index, source_releases):
+    """Select the highest regular feed version with a matching stable source release."""
+    stable_tags = {
+        release['tag_name']
+        for release in source_releases
+        if release.get('draft') is False and release.get('prerelease') is False
+        and isinstance(release.get('tag_name'), str)
+    }
+    candidates = {}
+    for version in index['versions']:
+        match = KERNEL.fullmatch(version)
+        if match:
+            tag = 'linux-msft-wsl-' + match.group(1)
+            if tag in stable_tags:
+                candidates[version] = tag
     if not candidates:
         return None
-    version = max(candidates, key=version_key)
-    if version_key(version) < max(version_key(item['version']) for item in targets):
-        return None
-    referenced = any(item['version'] == version for item in targets)
-    return {'tag': release['tag_name'], 'version': version, 'referenced': referenced}
+    version = max(candidates, key=lambda value: tuple(map(int, re.split(r'[.-]', value))))
+    return {'tag': candidates[version], 'version': version}
 
 
 def published_releases(repository):
@@ -144,18 +161,8 @@ def main():
         raw = response.read(1024 * 1024 + 1)
     if len(raw) > 1024 * 1024: raise ValueError('Microsoft kernel package index is too large')
     index = json.loads(raw)
-    targets = plan(releases, kernels, index, assets)
-    if len(sys.argv) == 3:
-        try:
-            latest = gh_json('repos/microsoft/WSL2-Linux-Kernel/releases/latest')
-            candidate = early_target(latest, index, targets)
-            if candidate:
-                candidate['commit'] = tag_commit(candidate['tag'], 'microsoft/WSL2-Linux-Kernel')
-        except (subprocess.CalledProcessError, ValueError, KeyError, TypeError) as error:
-            print(f'Kernel prebuild discovery unavailable: {error}', file=sys.stderr)
-            candidate = None
-        with Path(sys.argv[2]).open('x', encoding='utf-8') as output:
-            json.dump(candidate, output, sort_keys=True)
+    source_releases = published_releases('microsoft/WSL2-Linux-Kernel')
+    targets = plan(releases, kernels, index, assets, source_releases)
     print(json.dumps(targets, sort_keys=True))
 
 if __name__ == '__main__': main()
