@@ -253,8 +253,13 @@ WSX-Service is the dedicated WSL 2 distribution for shared desktop services.
 The desktop launcher discovers it by its WSL registration name. Audio is its
 first service. Clipboard integration is planned.
 
-For audio, provision WSX-Service with WSLg enabled, Python 3.9 or later, and
-a non-root default user whose numeric UID matches the desktop user. The
+The Community Windows ZIP includes a minimal Debian image. On desktop
+startup, Core imports and verifies the image if WSX-Service is missing.
+The expected image hash is embedded in the Community executable. The
+corresponding Debian sources are available in the release's materials ZIP.
+
+Audio requires WSLg, Python 3.9 or later, and a non-root service user whose
+numeric UID matches the desktop user. The Community image uses UID 1000. The
 desktop Guest must advertise `audio.pulse-relay-v1`. The launcher starts the
 relay by registration GUID and records its status in the session's
 `audio.json`. Desktop startup can continue if the relay is unavailable.

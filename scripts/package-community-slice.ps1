@@ -2,7 +2,7 @@ param([Parameter(Mandatory=$true)][string]$ExecutablePackage,
       [Parameter(Mandatory=$true)][string]$RuntimePackage,
       [Parameter(Mandatory=$true)][string]$GuiNotices,
       [Parameter(Mandatory=$true)][string]$Output,
-      [string]$KernelSourceLinks)
+      [string]$KernelSourceLinks, [string]$ServiceImageDirectory)
 $ErrorActionPreference = 'Stop'
 if (Test-Path -LiteralPath $Output) { throw 'Output already exists' }
 & "$PSScriptRoot\verify-change-license.ps1" -Directory (Split-Path $PSScriptRoot -Parent)
@@ -55,6 +55,14 @@ Copy-Item -LiteralPath $kernelModules -Destination (Join-Path $content 'kernel-m
 & (Join-Path $PSScriptRoot 'verify-kernel-assets.ps1') -Directory (Join-Path $content 'kernel-modules')
 if ($KernelSourceLinks) {
     Copy-Item -LiteralPath $KernelSourceLinks -Destination (Join-Path $content 'KERNEL-SOURCE-LINKS.md')
+}
+if ($ServiceImageDirectory) {
+    $serviceRoot = New-Item -ItemType Directory (Join-Path $content 'service')
+    $image = Join-Path $ServiceImageDirectory 'wsx-service-rootfs.tar'
+    $hash = (Get-FileHash -LiteralPath $image -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($hash -cne $env:WSX_SERVICE_IMAGE_SHA256) { throw 'Service image differs from executable build input' }
+    Copy-Item -LiteralPath $image -Destination $serviceRoot
+    Copy-Item -LiteralPath (Join-Path $ServiceImageDirectory 'wsx-service-packages.tsv') -Destination $serviceRoot
 }
 Copy-Item -LiteralPath $GuiNotices -Destination (Join-Path $content 'gui-third-party') -Recurse
 Add-Type -AssemblyName System.IO.Compression

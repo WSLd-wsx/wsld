@@ -25,7 +25,7 @@ def file_hash(path):
         return hash_stream(stream)
 
 
-def assemble(package, runtime, kernel, source, output):
+def assemble(package, runtime, kernel, source, output, service_image_directory=None):
     if output.exists():
         raise ValueError('Materials output already exists')
     source = source.resolve(strict=True)
@@ -90,6 +90,21 @@ def assemble(package, runtime, kernel, source, output):
                     'runtime_files': {name: archive_hash(product, name) for name in sorted(checks)},
                     'kernel_modules': kernel_manifest['modules'],
                     'scope': 'Host and Guest product code is closed source. Collected notices and available kernel source evidence do not establish third-party source completeness or license approval.'}
+        if service_image_directory:
+            service_files = ('wsx-service-rootfs.tar', 'wsx-service-packages.tsv', 'wsx-service-sources.tar.gz')
+            sums = {}
+            for line in (service_image_directory / 'SHA256SUMS').read_text().splitlines():
+                digest, name = line.split(maxsplit=1)
+                if name not in service_files or name in sums or file_hash(service_image_directory / name) != digest:
+                    raise ValueError('Service image input does not match its checksum manifest: ' + name)
+                sums[name] = digest
+            if set(sums) != set(service_files):
+                raise ValueError('Incomplete service image checksum manifest')
+            for name in service_files[:2]:
+                if archive_hash(product, 'service/' + name) != sums[name]:
+                    raise ValueError('Packaged service input differs: ' + name)
+            manifest['service_image'] = sums
+            material_names.append('service/wsx-service-packages.tsv')
         with zipfile.ZipFile(output, 'x', compression=zipfile.ZIP_DEFLATED, allowZip64=True) as result:
             result.writestr('manifest.json', json.dumps(manifest, sort_keys=True, indent=2) + '\n')
             for name in sorted(material_names):
@@ -98,6 +113,10 @@ def assemble(package, runtime, kernel, source, output):
                 with product.open(name) as src, result.open(notice, 'w', force_zip64=True) as dst:
                     while chunk := src.read(1024 * 1024): dst.write(chunk)
             result.write(kernel, 'kernel-source-evidence.zip')
+            if service_image_directory:
+                result.write(service_image_directory / 'wsx-service-sources.tar.gz',
+                             'wsx-service-sources.tar.gz', compress_type=zipfile.ZIP_STORED)
+                result.write(source / 'scripts/build-service-image.sh', 'build-service-image.sh')
     return manifest
 
 
@@ -108,5 +127,6 @@ if __name__ == '__main__':
     parser.add_argument('--kernel-evidence', type=Path, required=True)
     parser.add_argument('--source', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--service-image-directory', type=Path)
     args = parser.parse_args()
-    print(json.dumps(assemble(args.package, args.runtime, args.kernel_evidence, args.source, args.output), sort_keys=True))
+    print(json.dumps(assemble(args.package, args.runtime, args.kernel_evidence, args.source, args.output, args.service_image_directory), sort_keys=True))

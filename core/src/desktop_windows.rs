@@ -1295,6 +1295,13 @@ fn start_inner(
             &serde_json::to_vec_pretty(&recycled).map_err(|e| e.to_string())?,
         )?;
     }
+    let instance = field(&observed, "instance")?;
+    let (mut audio, mut audio_status) = match crate::store::data_root().and_then(|root|
+        audio::Audio::start(&root, dir, reg, instance, observed_guest_capabilities.as_ref())
+    ) {
+        Ok(relay) => (relay, json!({"status":"disabled"})),
+        Err(error) => (None, json!({"status":"unavailable","error":error})),
+    };
     phase(
         dir,
         "native_starting",
@@ -1312,13 +1319,6 @@ fn start_inner(
     native["guest_protocol"] = profile["guest_protocol"].clone();
     if use_v2 { native["guest_protocol_major"] = json!(2); }
     let log = Path::new(field(&native, "log")?);
-    let instance = field(&native, "instance")?;
-    let (mut audio, mut audio_status) = match crate::store::data_root().and_then(|root|
-        audio::Audio::start(&root, dir, reg, instance, observed_guest_capabilities.as_ref())
-    ) {
-        Ok(relay) => (relay, json!({"status":"disabled"})),
-        Err(error) => (None, json!({"status":"unavailable","error":error})),
-    };
     let deadline = Instant::now() + Duration::from_secs(45);
     loop {
         let text = log_tail(log);

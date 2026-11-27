@@ -322,7 +322,9 @@ async function beginStoreHandoff() {
     return;
   }
   await invoke('store_open_listing');
-  $('upgrade-status').textContent = 'Install WSX Desk in Microsoft Store. We will open it when installation finishes.';
+  const instructions = 'Install WSX Desk in Microsoft Store. We will open it when installation finishes.';
+  $('upgrade-status').textContent = instructions;
+  if (!$('upgrade-dialog').open) showToast(instructions);
   if (handoffTimer !== null) clearInterval(handoffTimer);
   handoffTimer = setInterval(async () => {
     if (handoffChecking) return;
@@ -400,30 +402,26 @@ async function requestStorePro(reportError = message => showToast(message, true)
     requestingPro = false;
   }
 }
-$('store-upgrade').addEventListener('click', async () => {
-  const button = $('store-upgrade');
+async function handleStoreUpgrade(event) {
+  const button = event.currentTarget;
+  const dialogOpen = $('upgrade-dialog').open;
+  const reportError = dialogOpen
+    ? message => { $('upgrade-status').textContent = message; }
+    : message => showToast(message, true);
   button.disabled = true;
-  try {
-    const environment = await environmentReady;
-    if (environment.edition === 'community') await invoke('store_open_listing');
-    else await requestStorePro();
-  } catch (error) {
-    showToast(isCommunity ? `Unable to open Microsoft Store: ${error}` : `Purchase unavailable: ${error}`, true);
-  } finally {
-    button.disabled = false;
-  }
-});
-$('store-buy').addEventListener('click', async () => {
-  $('store-buy').disabled = true;
   $('upgrade-status').textContent = '';
   try {
     const environment = await environmentReady;
     if (environment.edition === 'community') await beginStoreHandoff();
-    else await requestStorePro(message => { $('upgrade-status').textContent = message; });
+    else await requestStorePro(reportError);
+  } catch (error) {
+    reportError(isCommunity ? `Unable to open the Store edition: ${error}` : `Purchase unavailable: ${error}`);
+  } finally {
+    button.disabled = false;
   }
-  catch (error) { $('upgrade-status').textContent = isCommunity ? `Unable to open the Store version: ${error}` : `Purchase unavailable: ${error}`; }
-  finally { $('store-buy').disabled = false; }
-});
+}
+$('store-upgrade').addEventListener('click', handleStoreUpgrade);
+$('store-buy').addEventListener('click', handleStoreUpgrade);
 $('close-upgrade').addEventListener('click', () => $('upgrade-dialog').close());
 $('copy-command').addEventListener('click', async () => {
   if (!currentCommand) return;

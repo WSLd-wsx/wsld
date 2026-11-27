@@ -25,6 +25,7 @@ impl Audio {
         capabilities: Option<&Value>,
     ) -> Result<Option<Self>, String> {
         let startup_lock = service::lock(root)?;
+        service::provision(root)?;
         service::check_available(root)?;
         let Some(provider_guid) = service::registration(root, target)? else {
             return Ok(None);

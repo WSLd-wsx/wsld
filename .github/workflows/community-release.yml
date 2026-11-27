@@ -12,7 +12,40 @@ concurrency:
   group: wsx-community-package
   cancel-in-progress: false
 jobs:
+  service-image:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      source_commit: ${{ steps.source.outputs.sha }}
+    steps:
+      - name: Resolve latest WSLD main commit
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          commit=$(gh api repos/WSLd-wsx/wsld/commits/main --jq .sha)
+          [[ $commit =~ ^[0-9a-f]{40}$ ]]
+          echo "sha=$commit" >> "$GITHUB_OUTPUT"
+          echo "WSLD source commit: $commit" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ steps.source.outputs.sha }}
+          persist-credentials: false
+      - name: Build Debian service image and collect sources
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y debootstrap debian-archive-keyring
+          sudo bash scripts/build-service-image.sh "$RUNNER_TEMP/wsx-service-image"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: wsx-service-image
+          path: ${{ runner.temp }}/wsx-service-image/
+          if-no-files-found: error
+          retention-days: 1
   build:
+    needs: service-image
     if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: windows-2022
     timeout-minutes: 120
@@ -21,28 +54,18 @@ jobs:
         shell: pwsh
         run: |
           "WSX_BUILD_CACHE=$(Join-Path $env:RUNNER_TEMP 'wsx-product-msvc')" >> $env:GITHUB_ENV
-      - name: Resolve latest WSLD main commit
-        id: source
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $commit = gh api repos/WSLd-wsx/wsld/commits/main --jq .sha
-          if ($LASTEXITCODE -ne 0 -or $commit -cnotmatch '^[0-9a-f]{40}$') { throw 'Cannot resolve WSLD main commit' }
-          "sha=$commit" >> $env:GITHUB_OUTPUT
-          "WSLD source commit: $commit" >> $env:GITHUB_STEP_SUMMARY
       - name: Checkout pinned public Core source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: WSLd-wsx/wsld
-          ref: ${{ steps.source.outputs.sha }}
+          ref: ${{ needs.service-image.outputs.source_commit }}
           token: ${{ github.token }}
           path: wsld
           persist-credentials: false
       - name: Verify source and prepare Rust
         shell: pwsh
         env:
-          SOURCE_COMMIT: ${{ steps.source.outputs.sha }}
+          SOURCE_COMMIT: ${{ needs.service-image.outputs.source_commit }}
         run: |
           if ((git -C wsld rev-parse HEAD).Trim() -cne $env:SOURCE_COMMIT) { throw 'Source commit differs' }
           foreach ($path in @('community/Cargo.toml','gui/Cargo.toml','scripts/build-community-slice.ps1','scripts/package-community-slice.ps1')) {
@@ -150,10 +173,14 @@ jobs:
           key: community-registry-v1-${{ runner.os }}-${{ runner.arch }}-rust195-${{ hashFiles('wsld/community/Cargo.lock') }}
           restore-keys: |
             community-registry-v1-${{ runner.os }}-${{ runner.arch }}-rust195-
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: wsx-service-image
+          path: ${{ runner.temp }}/wsx-service-image
       - name: Build and package community edition
         shell: pwsh
         env:
-          SOURCE_COMMIT: ${{ steps.source.outputs.sha }}
+          SOURCE_COMMIT: ${{ needs.service-image.outputs.source_commit }}
           RUNTIME_TAG: ${{ steps.runtime.outputs.tag }}
           RUNTIME_ASSET: ${{ steps.runtime.outputs.asset }}
           RUNTIME_SHA256: ${{ steps.runtime.outputs.sha256 }}
@@ -163,13 +190,15 @@ jobs:
           $root = "$env:RUNNER_TEMP/wsx-product-runtime"
           $evidence = "$env:RUNNER_TEMP/wsx-community-build"
           $package = "$env:RUNNER_TEMP/wsx-community-package"
+          $service = "$env:RUNNER_TEMP/wsx-service-image"
+          $env:WSX_SERVICE_IMAGE_SHA256 = (Get-FileHash -LiteralPath "$service/wsx-service-rootfs.tar" -Algorithm SHA256).Hash.ToLowerInvariant()
           $env:TAURI_CONFIG = @{version = $env:COMMUNITY_VERSION} | ConvertTo-Json -Compress
           & ./wsld/scripts/build-community-slice.ps1 -Evidence $evidence -RuntimePackage "$root/runtime" -RuntimeCatalog "$root/runtime-catalog.json" -GuestAdapterCatalog "$root/guest-adapter-catalog.json"
           $versionInfo = (Get-Item -LiteralPath "$evidence/package/wsxdesk.exe").VersionInfo
           if ($versionInfo.ProductVersion -cne $env:COMMUNITY_VERSION -or $versionInfo.FileVersion -cne $env:COMMUNITY_VERSION) {
             throw 'Community executable version differs from the selected release version'
           }
-          & ./wsld/scripts/package-community-slice.ps1 -ExecutablePackage "$evidence/package" -RuntimePackage "$root/runtime" -GuiNotices "$evidence/gui-notices" -Output $package -KernelSourceLinks "$env:RUNNER_TEMP/KERNEL-SOURCE-LINKS.md"
+          & ./wsld/scripts/package-community-slice.ps1 -ExecutablePackage "$evidence/package" -RuntimePackage "$root/runtime" -GuiNotices "$evidence/gui-notices" -Output $package -KernelSourceLinks "$env:RUNNER_TEMP/KERNEL-SOURCE-LINKS.md" -ServiceImageDirectory $service
           Copy-Item "$package/wsx-community-slice.zip" "$package/wsx-community-windows-x64.zip"
           $zip = [IO.Compression.ZipFile]::OpenRead("$package/wsx-community-windows-x64.zip")
           try {
@@ -177,10 +206,13 @@ jobs:
             if (($executables -join ',') -cne 'wsld.exe,wsx.exe,wsxdesk.exe') {
               throw "Unexpected community ZIP executables: $($executables -join ', ')"
             }
+            $serviceEntry = $zip.GetEntry('service/wsx-service-rootfs.tar')
+            if ($null -eq $serviceEntry) { throw 'Community ZIP is missing the WSX-Service image' }
+            "WSX-Service image in Windows ZIP: $($serviceEntry.CompressedLength) bytes" >> $env:GITHUB_STEP_SUMMARY
           } finally { $zip.Dispose() }
           $hash = (Get-FileHash "$package/wsx-community-windows-x64.zip" -Algorithm SHA256).Hash.ToLowerInvariant()
           Copy-Item "$env:RUNNER_TEMP/wsx-kernel-source-evidence.zip" "$package/kernel-source-evidence.zip"
-          python wsld/scripts/assemble-community-materials.py --package "$package/wsx-community-windows-x64.zip" --runtime "$env:RUNNER_TEMP/wsx-runtime-download/$env:RUNTIME_ASSET" --kernel-evidence "$package/kernel-source-evidence.zip" --source wsld --output "$package/wsx-community-materials.zip"
+          python wsld/scripts/assemble-community-materials.py --package "$package/wsx-community-windows-x64.zip" --runtime "$env:RUNNER_TEMP/wsx-runtime-download/$env:RUNTIME_ASSET" --kernel-evidence "$package/kernel-source-evidence.zip" --source wsld --service-image-directory $service --output "$package/wsx-community-materials.zip"
           if ($LASTEXITCODE -ne 0) { throw 'Community component material verification failed' }
           python wsld/scripts/community-mpl-sources.py verify --lock wsld/community/Cargo.lock --tree "$evidence/mpl-dependency-tree.txt" --package "$package/wsx-community-windows-x64.zip" --materials "$package/wsx-community-materials.zip"
           if ($LASTEXITCODE -ne 0) { throw 'MPL dependency source verification failed' }
@@ -188,7 +220,7 @@ jobs:
           [IO.File]::WriteAllText("$package/SHA256SUMS", "$hash  wsx-community-windows-x64.zip`n$materialsHash  wsx-community-materials.zip`n")
           python wsld/scripts/audit-community-package.py "$package/wsx-community-windows-x64.zip" "$package/community-audit.json" --kernel-evidence "$package/kernel-source-evidence.zip"
           if ($LASTEXITCODE -ne 0) { throw 'Community package evidence audit failed' }
-          "Community version: $env:COMMUNITY_VERSION`nSource commit: $env:SOURCE_COMMIT`nRuntime release: $env:RUNTIME_TAG asset $env:RUNTIME_ASSET`nRuntime SHA-256: $env:RUNTIME_SHA256`nKernel modules: $env:KERNEL_TAG`nZIP SHA-256: $hash" | Set-Content "$package/build-provenance.txt"
+          "Community version: $env:COMMUNITY_VERSION`nSource commit: $env:SOURCE_COMMIT`nRuntime release: $env:RUNTIME_TAG asset $env:RUNTIME_ASSET`nRuntime SHA-256: $env:RUNTIME_SHA256`nKernel modules: $env:KERNEL_TAG`nWSX-Service image SHA-256: $env:WSX_SERVICE_IMAGE_SHA256`nZIP SHA-256: $hash" | Set-Content "$package/build-provenance.txt"
       - name: Save Cargo registry cache
         if: ${{ steps.registry-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
@@ -203,7 +235,7 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          SOURCE_COMMIT: ${{ steps.source.outputs.sha }}
+          SOURCE_COMMIT: ${{ needs.service-image.outputs.source_commit }}
           COMMUNITY_VERSION: ${{ steps.version.outputs.number }}
           KERNEL_TAG: ${{ steps.kernel.outputs.tag }}
         run: |
@@ -233,7 +265,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           HOST_TOKEN: ${{ secrets.WSXD_TOKEN }}
           RUNTIME_REPOSITORY: ${{ secrets.WSX_RUNTIME_REPOSITORY }}
-          SOURCE_COMMIT: ${{ steps.source.outputs.sha }}
+          SOURCE_COMMIT: ${{ needs.service-image.outputs.source_commit }}
           COMMUNITY_VERSION: ${{ steps.version.outputs.number }}
           KERNEL_TAG: ${{ steps.kernel.outputs.tag }}
         run: |

@@ -87,6 +87,42 @@ fn registered() -> Result<Option<Registration>, String> {
         .find(|entry| entry.name.eq_ignore_ascii_case(SERVICE_NAME)))
 }
 
+pub(super) fn provision(root: &Path) -> Result<(), String> {
+    let Some(sha256) = option_env!("WSX_SERVICE_IMAGE_SHA256") else {
+        return Ok(());
+    };
+    let directory = service_directory(root);
+    let pending = directory.join("install.pending");
+    let provider = if let Some(provider) = registered()? {
+        if !pending.try_exists().map_err(|e| e.to_string())?
+            || directory.join("upgrade.pending").try_exists().map_err(|e| e.to_string())?
+        {
+            return Ok(());
+        }
+        provider
+    } else {
+        let config = root.join("config").join("wsx-service.json");
+        if config.try_exists().map_err(|e| e.to_string())? {
+            return Err("The configured WSX-Service registration is unavailable".into());
+        }
+        let executable = std::env::current_exe().map_err(|e| e.to_string())?;
+        let image = executable
+            .parent()
+            .ok_or("Cannot locate the Community package")?
+            .join("service")
+            .join("wsx-service-rootfs.tar");
+        install_image(&directory, &image, sha256)?;
+        registered()?.ok_or("WSX-Service registration is unavailable after import")?
+    };
+    if provider.version != 2 || !owned_disk(&directory, &provider)? {
+        return Err("WSX-Service import did not produce the expected WSL 2 registration".into());
+    }
+    registration(root, "")?.filter(|guid| guid == &provider.guid)
+        .ok_or("WSX-Service registration changed during provisioning")?;
+    verify(&directory, &provider)?;
+    clear_pending(&pending)
+}
+
 fn owned_disk(directory: &Path, provider: &Registration) -> Result<bool, String> {
     let disk = directory.join("distro");
     reject_reparse(&disk)?;
