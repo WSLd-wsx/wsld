@@ -33,13 +33,14 @@ impl Audio {
         if !capabilities.and_then(|v| v["capabilities"].as_array())
             .is_some_and(|caps| caps.iter().any(|v| v == "audio.pulse-relay-v1"))
         {
-            return Err("Guest does not support the Pulse relay".into());
+            return Err("Guest adapter lacks audio.pulse-relay-v1. Install a Community package with an audio-capable runtime".into());
         }
         let instance: String = instance.chars().filter(|c| c.is_ascii_hexdigit()).collect::<String>().to_ascii_lowercase();
         if instance.len() != 32 {
             return Err("Invalid audio session identity".into());
         }
-        let directory = format!("/mnt/wsl/wsx-service-audio-{instance}");
+        // The Guest adapter validates this per-session Pulse path.
+        let directory = format!("/mnt/wsl/wsx-audio-{instance}");
         let log = OpenOptions::new().write(true).create_new(true)
             .open(diagnostics.join("audio-provider.log"))
             .map_err(|e| format!("Open audio provider diagnostics: {e}"))?;
