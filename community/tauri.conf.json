@@ -9,5 +9,5 @@
     "windows": [],
     "security": { "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src ipc: http://ipc.localhost" }
   },
-  "bundle": { "active": false, "icon": ["../host/resources/icon.ico"] }
+  "bundle": { "active": false, "icon": ["resources/WSXce.ico"] }
 }

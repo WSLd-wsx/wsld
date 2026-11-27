@@ -53,7 +53,7 @@ convert arbitrary existing WSL installations into WSX desktops. See
   Prompt or PowerShell for installation and desktop commands. WSX needs Windows
   Host Compute Service (HCS) permissions to attach and remove the virtual PCI
   device used by the desktop. Elevate the same Windows account that owns the
-  WSL distribution. Starting the desktop manager (`wsldesk.exe`) from Explorer
+  WSL distribution. Starting the desktop manager (`wsxdesk.exe`) from Explorer
   requests elevation through UAC.
 - **Graphics:** a Windows GPU and driver with the Vulkan capabilities required by
   the selected WSX graphics path, plus a compatible WSL kernel, WSX modules and
@@ -127,7 +127,7 @@ systems and untested Windows/WSL versions need independent validation. See
    ```
 
    Use that terminal for installation and desktop commands. Listing distributions,
-   help and version work in a standard terminal. If you open `wsldesk.exe` from
+   help and version work in a standard terminal. If you open `wsxdesk.exe` from
    Explorer, approve the UAC prompt with the account that owns the distribution.
 
 4. **Choose and install an image.** List eligible stable desktop images and
@@ -177,7 +177,7 @@ recovery behavior.
 
 ## Community GUI
 
-Launch `wsldesk.exe` from the extracted package to open the WSX manager. Its
+Launch `wsxdesk.exe` from the extracted package to open the WSX manager. Its
 community interface shows registered WSL distributions and their running state,
 identifies verified WSX desktops, refreshes the inventory, and opens a terminal
 for a selected distribution. It also shows the CLI command when an action requires

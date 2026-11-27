@@ -165,7 +165,7 @@ jobs:
           $package = "$env:RUNNER_TEMP/wsx-community-package"
           $env:TAURI_CONFIG = @{version = $env:COMMUNITY_VERSION} | ConvertTo-Json -Compress
           & ./wsld/scripts/build-community-slice.ps1 -Evidence $evidence -RuntimePackage "$root/runtime" -RuntimeCatalog "$root/runtime-catalog.json" -GuestAdapterCatalog "$root/guest-adapter-catalog.json"
-          $versionInfo = (Get-Item -LiteralPath "$evidence/package/wsldesk.exe").VersionInfo
+          $versionInfo = (Get-Item -LiteralPath "$evidence/package/wsxdesk.exe").VersionInfo
           if ($versionInfo.ProductVersion -cne $env:COMMUNITY_VERSION -or $versionInfo.FileVersion -cne $env:COMMUNITY_VERSION) {
             throw 'Community executable version differs from the selected release version'
           }
@@ -174,7 +174,7 @@ jobs:
           $zip = [IO.Compression.ZipFile]::OpenRead("$package/wsx-community-windows-x64.zip")
           try {
             $executables = @($zip.Entries | Where-Object { $_.FullName -match '^[^/]+\.exe$' } | ForEach-Object { $_.FullName } | Sort-Object)
-            if (($executables -join ',') -cne 'wsld.exe,wsldesk.exe,wsx.exe') {
+            if (($executables -join ',') -cne 'wsld.exe,wsx.exe,wsxdesk.exe') {
               throw "Unexpected community ZIP executables: $($executables -join ', ')"
             }
           } finally { $zip.Dispose() }
@@ -214,7 +214,7 @@ jobs:
           gh api --method POST repos/WSLd-wsx/wsld/git/refs -f "ref=refs/tags/$tag" -f "sha=$env:SOURCE_COMMIT"
           if ($LASTEXITCODE -ne 0) { throw 'Cannot create the new version tag; inspect the target repository before retrying' }
           $p = "$env:RUNNER_TEMP/wsx-community-package"
-          gh release create $tag "$p/wsx-community-windows-x64.zip" "$p/wsx-community-materials.zip" "$p/SHA256SUMS" "$p/build-provenance.txt" "$p/community-audit.json" --repo WSLd-wsx/wsld --verify-tag --prerelease --latest=false --title "WSX Community Edition $env:COMMUNITY_VERSION" --notes "Download and extract wsx-community-windows-x64.zip, then launch wsldesk.exe. See SHA256SUMS for download verification and build-provenance.txt for the source and component versions. The corresponding WSL kernel source archives are available at https://github.com/WSLd-wsx/wsld/releases/tag/$env:KERNEL_TAG. See KERNEL-SOURCE-LINKS.md in the Windows package for exact links and checksums."
+          gh release create $tag "$p/wsx-community-windows-x64.zip" "$p/wsx-community-materials.zip" "$p/SHA256SUMS" "$p/build-provenance.txt" "$p/community-audit.json" --repo WSLd-wsx/wsld --verify-tag --prerelease --latest=false --title "WSX Community Edition $env:COMMUNITY_VERSION" --notes "Download and extract wsx-community-windows-x64.zip, then launch wsxdesk.exe. See SHA256SUMS for download verification and build-provenance.txt for the source and component versions. The corresponding WSL kernel source archives are available at https://github.com/WSLd-wsx/wsld/releases/tag/$env:KERNEL_TAG. See KERNEL-SOURCE-LINKS.md in the Windows package for exact links and checksums."
           if ($LASTEXITCODE -ne 0) { throw 'Cannot create the test release; inspect the repository before retrying' }
           $release = gh release view $tag --repo WSLd-wsx/wsld --json isPrerelease,isDraft,tagName | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0 -or -not $release.isPrerelease -or $release.isDraft -or $release.tagName -cne $tag) { throw 'Cannot confirm the test release' }
@@ -259,7 +259,7 @@ jobs:
           gh api --method POST repos/WSLd-wsx/wsld/git/refs -f "ref=refs/tags/$env:RELEASE_TAG" -f "sha=$env:SOURCE_COMMIT"
           if ($LASTEXITCODE -ne 0) { throw 'Cannot create the new tag; inspect the target repository before retrying' }
           $p = "$env:RUNNER_TEMP/wsx-community-package"
-          gh release create $env:RELEASE_TAG "$p/wsx-community-windows-x64.zip" "$p/wsx-community-materials.zip" "$p/SHA256SUMS" "$p/build-provenance.txt" "$p/community-audit.json" --repo WSLd-wsx/wsld --verify-tag --draft --title "WSX Community Edition $env:COMMUNITY_VERSION" --notes "Download and extract wsx-community-windows-x64.zip, then launch wsldesk.exe. See SHA256SUMS for download verification and build-provenance.txt for the source and component versions. The corresponding WSL kernel source archives are available at https://github.com/WSLd-wsx/wsld/releases/tag/$env:KERNEL_TAG. See KERNEL-SOURCE-LINKS.md in the Windows package for exact links and checksums."
+          gh release create $env:RELEASE_TAG "$p/wsx-community-windows-x64.zip" "$p/wsx-community-materials.zip" "$p/SHA256SUMS" "$p/build-provenance.txt" "$p/community-audit.json" --repo WSLd-wsx/wsld --verify-tag --draft --title "WSX Community Edition $env:COMMUNITY_VERSION" --notes "Download and extract wsx-community-windows-x64.zip, then launch wsxdesk.exe. See SHA256SUMS for download verification and build-provenance.txt for the source and component versions. The corresponding WSL kernel source archives are available at https://github.com/WSLd-wsx/wsld/releases/tag/$env:KERNEL_TAG. See KERNEL-SOURCE-LINKS.md in the Windows package for exact links and checksums."
           if ($LASTEXITCODE -ne 0) { throw 'Draft creation failed; the new tag is retained for inspection' }
           $draft = gh release view $env:RELEASE_TAG --repo WSLd-wsx/wsld --json isDraft | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0 -or -not $draft.isDraft) { throw 'Cannot confirm that the new Release is a draft' }

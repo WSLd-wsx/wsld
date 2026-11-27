@@ -16,10 +16,10 @@ foreach ($name in @('MPL-SOURCES.md','mpl-sources\manifest.json','mpl-sources\Ca
     -GuestAdapterCatalog (Join-Path $ExecutablePackage 'guest-adapter-catalog.json')
 New-Item -ItemType Directory -Path $Output | Out-Null
 $content = New-Item -ItemType Directory (Join-Path $Output 'content')
-foreach ($name in @('wsld.exe','wsx.exe','wsldesk.exe')) {
+foreach ($name in @('wsld.exe','wsx.exe','wsxdesk.exe')) {
     Copy-Item -LiteralPath (Join-Path $ExecutablePackage $name) -Destination (Join-Path $content $name)
 }
-$hashes = @('wsld.exe','wsx.exe','wsldesk.exe') | ForEach-Object { (Get-FileHash -LiteralPath (Join-Path $content $_) -Algorithm SHA256).Hash }
+$hashes = @('wsld.exe','wsx.exe','wsxdesk.exe') | ForEach-Object { (Get-FileHash -LiteralPath (Join-Path $content $_) -Algorithm SHA256).Hash }
 if (@($hashes | Select-Object -Unique).Count -ne 1) { throw 'Executable copies have different hashes' }
 $repo = Split-Path $PSScriptRoot -Parent
 foreach ($name in @('LICENSE','NOTICE','LICENSING.md','THIRD-PARTY-NOTICES.md','licenses')) {

@@ -1,8 +1,8 @@
 # In-process edition integration builds
 
-The community and Store candidates are separate builds. Each copies one PE to
-`wsld.exe` and `wsx.exe` for the CLI. The community GUI uses `wsldesk.exe`
-and the Store GUI uses `wsxdesk.exe`. The Community build uses the public source crates and a verified runtime package.
+The Community and Store candidates are separate builds. Each copies one PE to
+`wsld.exe` and `wsx.exe` for the CLI and `wsxdesk.exe` for the GUI. The
+Community build uses the public source crates and a verified runtime package.
 
 On Windows with the pinned Rust/MSVC toolchain, pass a reviewed runtime package
 and the corresponding Native and Guest catalogs to

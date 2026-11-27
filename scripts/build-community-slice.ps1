@@ -13,7 +13,7 @@ Invoke-WsxNative $Cargo @('test','--locked','--target','x86_64-pc-windows-msvc',
 Invoke-WsxNative $Cargo @('build','--release','--locked','--target','x86_64-pc-windows-msvc','--manifest-path',"$RepoRoot\community\Cargo.toml")
 $source = Join-Path $env:CARGO_TARGET_DIR 'x86_64-pc-windows-msvc\release\wsx-community-slice.exe'
 $package = New-Item -ItemType Directory (Join-Path $Evidence 'package')
-foreach ($name in @('wsld.exe','wsx.exe','wsldesk.exe')) { Copy-Item -LiteralPath $source -Destination (Join-Path $package $name) }
+foreach ($name in @('wsld.exe','wsx.exe','wsxdesk.exe')) { Copy-Item -LiteralPath $source -Destination (Join-Path $package $name) }
 Copy-Item -LiteralPath $RuntimeCatalog -Destination (Join-Path $package 'runtime-catalog.json')
 Copy-Item -LiteralPath $GuestAdapterCatalog -Destination (Join-Path $package 'guest-adapter-catalog.json')
 $hashes = @(Get-ChildItem $package -Filter '*.exe' | Get-FileHash -Algorithm SHA256)
