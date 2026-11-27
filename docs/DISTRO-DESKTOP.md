@@ -246,3 +246,40 @@ for the Guest and skips Guest queries for a stopped distro; it verifies the pair
 Host bundle but does not launch it. Core no longer imports a Guest Python function.
 New protocol images call the public Guest boundary; existing images use the bounded
 legacy adapter. New image tags do not automatically establish graphics compatibility.
+
+## WSX-Service
+
+WSX-Service is the dedicated WSL 2 distribution for shared desktop services.
+The desktop launcher discovers it by its WSL registration name. Audio is its
+first service. Clipboard integration is planned.
+
+For audio, provision WSX-Service with WSLg enabled, Python 3.9 or later, and
+a non-root default user whose numeric UID matches the desktop user. The
+desktop Guest must advertise `audio.pulse-relay-v1`. The launcher starts the
+relay by registration GUID and records its status in the session's
+`audio.json`. Desktop startup can continue if the relay is unavailable.
+
+To bind the launcher to a specific WSX-Service registration, set
+`provider_registration_guid` in `<WSX data root>/config/wsx-service.json`.
+The GUID must match the WSL 2 registration named WSX-Service. The service
+registration must be separate from the desktop Guest registration.
+
+Core exposes the service lifecycle through the CLI:
+
+- `wsld.exe service install IMAGE --sha256 SHA256` verifies a trusted local
+  root filesystem archive, imports it into Core's service directory, then
+  checks the default user and the WSLg Pulse socket. Supply the digest from
+  the same trusted release as the archive.
+- `wsld.exe service status` reports registration, ownership, running state,
+  and pending installation or upgrade.
+- `wsld.exe service verify` checks the installed service and clears a pending
+  installation when verification passes.
+- `wsld.exe service upgrade` upgrades an idle Core-managed service in place
+  using its configured APT repositories, then verifies it again. An interrupted
+  or failed upgrade disables new audio relays until the upgrade is retried and
+  verification passes. Upgrade output is retained under the data root's
+  `service` directory.
+
+The image must include APT and dpkg with configured signed repositories, in
+addition to the runtime prerequisites above. Import and upgrade keep
+service operations scoped to the current Windows user.

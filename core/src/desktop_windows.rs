@@ -5,6 +5,8 @@ pub(super) mod distro;
 mod display;
 #[path = "desktop_audio_windows.rs"]
 mod audio;
+#[path = "desktop_service_windows.rs"]
+pub(super) mod service;
 use serde_json::json;
 use std::os::windows::process::CommandExt;
 use std::{

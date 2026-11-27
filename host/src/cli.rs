@@ -62,6 +62,20 @@ pub fn execute(args: &[String]) -> Result<(), String> {
         }
         return Ok(());
     }
+    if args.first().is_some_and(|arg| arg == "service") {
+        use wsx_core::desktop::ServiceCommand;
+        let command = match &args[1..] {
+            [operation] if operation == "status" => ServiceCommand::Status,
+            [operation] if operation == "verify" => ServiceCommand::Verify,
+            [operation] if operation == "upgrade" => ServiceCommand::Upgrade,
+            [operation, image, flag, sha256] if operation == "install" && flag == "--sha256" => {
+                ServiceCommand::Install { image: std::path::Path::new(image), sha256 }
+            }
+            _ => return Err("Usage: wsld.exe service status | verify | install IMAGE --sha256 SHA256 | upgrade".into()),
+        };
+        println!("{}", wsx_core::desktop::service(command)?);
+        return Ok(());
+    }
     if let Some(verbose) = local_list_mode(args) {
         return list_local(verbose);
     }
@@ -372,6 +386,9 @@ Arguments for managing distributions:
 
     --terminate, -t DISTRO_NAME
         Retire the WSX desktop if present, then terminate the WSL distribution.
+
+    service status | verify | install IMAGE --sha256 SHA256 | upgrade
+        Manage the dedicated WSX-Service WSL 2 distribution.
 
 Arguments for running a desktop:
 

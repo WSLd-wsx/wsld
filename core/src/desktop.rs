@@ -12,6 +12,20 @@ pub(crate) fn install_graphics_preflight() -> Result<(), String> {
 #[path = "desktop_distro.rs"]
 pub mod distro;
 
+pub enum ServiceCommand<'a> {
+    Status,
+    Verify,
+    Install { image: &'a Path, sha256: &'a str },
+    Upgrade,
+}
+
+pub fn service(command: ServiceCommand<'_>) -> Result<Value, String> {
+    #[cfg(windows)]
+    { windows::service::execute(command) }
+    #[cfg(not(windows))]
+    { let _ = command; Err("WSX-Service requires Windows WSL 2".into()) }
+}
+
 pub(crate) fn initialize_owned(distro: &str, expected_registration: Option<&str>) -> Result<(), String> {
     #[cfg(windows)]
     { windows::distro::initialize_owned(distro, expected_registration) }

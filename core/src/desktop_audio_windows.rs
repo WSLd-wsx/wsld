@@ -1,7 +1,7 @@
-use super::{captured, read_json, system, wsl, DISTRO_INIT_MOUNT};
+use super::{captured, service, system, wsl, DISTRO_INIT_MOUNT};
 use serde_json::{json, Value};
 use std::{
-    fs::{self, OpenOptions},
+    fs::{self, File, OpenOptions},
     io::Write,
     os::windows::process::CommandExt,
     path::Path,
@@ -13,6 +13,7 @@ const SESSION_SCRIPT: &str = include_str!("../guest/audio-session.py");
 pub(super) struct Audio {
     directory: String,
     provider: Child,
+    startup_lock: Option<File>,
 }
 
 impl Audio {
@@ -23,37 +24,26 @@ impl Audio {
         instance: &str,
         capabilities: Option<&Value>,
     ) -> Result<Option<Self>, String> {
-        let config = root.join("config").join("wslg-audio.json");
-        if !config.try_exists().map_err(|e| e.to_string())? {
+        let startup_lock = service::lock(root)?;
+        service::check_available(root)?;
+        let Some(provider_guid) = service::registration(root, target)? else {
             return Ok(None);
-        }
+        };
         if !capabilities.and_then(|v| v["capabilities"].as_array())
             .is_some_and(|caps| caps.iter().any(|v| v == "audio.pulse-relay-v1"))
         {
             return Err("Guest does not support the Pulse relay".into());
         }
-        let config = read_json(&config)?;
-        let guid = config["provider_registration_guid"].as_str()
-            .ok_or("Missing audio provider registration GUID")?;
-        let bare_guid = |value: &str| value.trim_matches(['{', '}']).to_ascii_lowercase();
-        let guid = bare_guid(guid);
-        let registrations = crate::platform::registration::list()?;
-        let provider = registrations.iter()
-            .find(|entry| entry.version == 2 && bare_guid(&entry.guid) == guid)
-            .ok_or("Configured audio provider registration is unavailable")?;
-        if provider.name.eq_ignore_ascii_case(target) {
-            return Err("Audio provider must be a separate registration".into());
-        }
         let instance: String = instance.chars().filter(|c| c.is_ascii_hexdigit()).collect::<String>().to_ascii_lowercase();
         if instance.len() != 32 {
             return Err("Invalid audio session identity".into());
         }
-        let directory = format!("/mnt/wsl/wsx-audio-{instance}");
+        let directory = format!("/mnt/wsl/wsx-service-audio-{instance}");
         let log = OpenOptions::new().write(true).create_new(true)
             .open(diagnostics.join("audio-provider.log"))
             .map_err(|e| format!("Open audio provider diagnostics: {e}"))?;
         let child = Command::new(system("wsl.exe")?)
-            .args(["--distribution-id", &provider.guid, "--cd", "/", "--exec", "/usr/bin/python3",
+            .args(["--distribution-id", &provider_guid, "--cd", "/", "--exec", "/usr/bin/python3",
                 "-I", "-c", include_str!("../guest/audio-relay.py"), &directory])
             .creation_flags(0x08000000)
             .current_dir(diagnostics)
@@ -62,7 +52,7 @@ impl Audio {
             .stderr(Stdio::from(log))
             .spawn()
             .map_err(|e| format!("Start WSLg audio provider: {e}"))?;
-        Ok(Some(Self { directory, provider: child }))
+        Ok(Some(Self { directory, provider: child, startup_lock: Some(startup_lock) }))
     }
 
     pub(super) fn prepare(&mut self, target: &str, diagnostics: &Path) -> Result<Value, String> {
@@ -73,6 +63,7 @@ impl Audio {
         probe.args(DISTRO_INIT_MOUNT);
         probe.args(["/usr/bin/python3", "-I", "-c", SESSION_SCRIPT, "probe", &self.directory]);
         captured(probe, diagnostics, "audio-guest-probe", None, 14)?;
+        self.startup_lock = None;
         Ok(json!({"status":"ready", "server":format!("unix:{}/pulse", self.directory),
                   "client_config":format!("{}/client.conf", self.directory)}))
     }

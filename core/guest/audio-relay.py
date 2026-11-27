@@ -21,6 +21,8 @@ async def pump(reader, writer):
 
 
 async def relay(directory):
+    if os.getuid() == 0:
+        raise RuntimeError("WSX-Service requires a non-root default user")
     connections = set()
     stop = asyncio.Event()
 
